@@ -64,9 +64,8 @@ export async function PATCH(
         const { id } = await params;
         const updates = await request.json();
 
-        // Enforce Logic: If a technician is assigned, status must be in_progress
-        // We only change status if it's currently pending or if we are explicitly assigning
-        if (updates.assigned_technician_id) {
+        // Enforce Logic: If a technician is assigned and no status is provided, default to in_progress
+        if (updates.assigned_technician_id && !updates.status) {
             updates.status = 'in_progress';
         }
 
