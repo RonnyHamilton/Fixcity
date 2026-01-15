@@ -15,24 +15,26 @@ app = FastAPI(title="FixCity Face Verification API (InsightFace)")
 # Enable CORS for Next.js app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Adjust this to your Next.js app's origin in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Lazy loaded model (starts as None)
-face_app = None
+@app.get("/")
+def root():
+    return {"status": "FixCity Face Server Running ✅"}
 
-def get_model():
-    global face_app
-    if face_app is None:
-        print("Initializing InsightFace model (Buffalo_L)... this may take a moment.")
-        from insightface.app import FaceAnalysis
-        face_app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
-        face_app.prepare(ctx_id=0, det_size=(640, 640))
-        print("InsightFace model initialized successfully.")
-    return face_app
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# Initialize InsightFace
+# Using buffalo_l model which includes detection and recognition
+print("Initializing InsightFace model (Buffalo_L)... this may take a moment to download on first run.")
+face_app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+face_app.prepare(ctx_id=0, det_size=(640, 640))
+print("InsightFace model initialized successfully.")
 
 # Path to face images
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -80,14 +82,8 @@ def compute_sim(feat1, feat2):
     """Compute cosine similarity between two feature vectors"""
     return np.dot(feat1, feat2) / (np.linalg.norm(feat1) * np.linalg.norm(feat2))
 
-@app.get("/health")
-async def health_check():
-    # Return instantly (Render uses this to decide if server is alive)
-    return {"status": "ok"}
-
 @app.post("/verify", response_model=VerifyResponse)
 async def verify_face(request: VerifyRequest):
-    model = get_model()
     try:
         # Find reference image
         reference_path = find_reference_image(request.badge_id, request.user_type)
@@ -111,7 +107,7 @@ async def verify_face(request: VerifyRequest):
                 error="Could not read the reference image file"
             )
 
-        ref_faces = model.get(ref_img)
+        ref_faces = face_app.get(ref_img)
         
         if len(ref_faces) == 0:
             return VerifyResponse(
@@ -139,7 +135,7 @@ async def verify_face(request: VerifyRequest):
             )
         
         # Get face from uploaded image
-        input_faces = model.get(input_img)
+        input_faces = face_app.get(input_img)
         
         if len(input_faces) == 0:
             return VerifyResponse(
@@ -194,5 +190,4 @@ if __name__ == "__main__":
     import uvicorn
     print(f"Looking for officer face images in: {OFFICER_FACES_DIR}")
     print(f"Looking for technician face images in: {TECH_FACES_DIR}")
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
