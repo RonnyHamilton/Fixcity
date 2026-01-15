@@ -1,0 +1,5 @@
+{
+    "scripts": {
+        "merge-duplicates": "tsx scripts/merge-duplicates.ts"
+    }
+}

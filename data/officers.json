@@ -1,0 +1,29 @@
+[
+  {
+    "id": "OFF001",
+    "badge_id": "IPS2024001",
+    "name": "Inspector Ronny",
+    "email": "sharma@fixcity.gov.in",
+    "password": "officer123",
+    "area": "North District",
+    "face_data": "mock_face_001"
+  },
+  {
+    "id": "OFF005",
+    "badge_id": "IPS2024005",
+    "name": "Inspector Hashwanth",
+    "email": "khan@fixcity.gov.in",
+    "password": "officer654",
+    "area": "Central District",
+    "face_data": "mock_face_005"
+  },
+  {
+    "id": "OFF_CHIEF",
+    "badge_id": "CHIEF001",
+    "name": "Commissioner Rahul",
+    "email": "commissioner@fixcity.gov.in",
+    "password": "securepass",
+    "area": "Headquarters",
+    "face_data": "mock_face_chief"
+  }
+]
