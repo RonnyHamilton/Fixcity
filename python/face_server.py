@@ -186,6 +186,12 @@ async def verify_face(request: VerifyRequest):
             error=str(e)
         )
 
+# Add /verify-face endpoint as an alias for Hugging Face compatibility
+@app.post("/verify-face", response_model=VerifyResponse)
+async def verify_face_alias(request: VerifyRequest):
+    """Alias endpoint for /verify to support Hugging Face deployment"""
+    return await verify_face(request)
+
 if __name__ == "__main__":
     import uvicorn
     print(f"Looking for officer face images in: {OFFICER_FACES_DIR}")
