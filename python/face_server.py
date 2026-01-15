@@ -77,7 +77,7 @@ def compute_sim(feat1, feat2):
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy", 
+        "status": "ok",
         "officer_faces_dir": OFFICER_FACES_DIR,
         "tech_faces_dir": TECH_FACES_DIR,
         "model": "buffalo_l"
