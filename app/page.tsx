@@ -111,7 +111,7 @@ export default function LandingPage() {
             Live: {stats.loading ? '...' : stats.fixedToday} issues resolved today
           </div>
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8 leading-[1.05]">
+          <h1 className="text-5xl md:text-7xl lg:text-7xl font-black tracking-tight mb-8 leading-[1.05]">
             Reimagine <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-blue-400 to-emerald-400">
               Civic Engagement.

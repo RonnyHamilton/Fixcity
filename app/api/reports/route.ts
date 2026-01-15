@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
             id: reportId,
             user_id: data.user_id,
             user_name: data.user_name,
+            user_phone: data.user_phone || null,
             category: data.category,
             description: data.description,
             address: data.location, // Schema guarantees location maps to address

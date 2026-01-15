@@ -136,27 +136,28 @@ export default function OfficerTechniciansPage() {
                         {techs.map((tech) => (
                             <div
                                 key={tech.id}
-                                className="p-4 flex items-center gap-4 hover:bg-white/[0.02] transition-all"
+                                className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-white/[0.02] transition-all"
                             >
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${tech.available ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                                    }`}>
-                                    <Wrench className="w-6 h-6" />
-                                </div>
-
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-white font-medium">{tech.name}</p>
-                                        <span className={`w-2 h-2 rounded-full ${tech.available ? 'bg-green-400' : 'bg-red-400'}`} />
-                                        <span className="text-xs text-gray-500">#{tech.badge_id}</span>
+                                <div className="flex items-center gap-4 flex-1">
+                                    <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center ${tech.available ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                        }`}>
+                                        <Wrench className="w-6 h-6" />
                                     </div>
-                                    <p className="text-gray-400 text-sm">{tech.specialization} Specialist</p>
+
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-white font-medium truncate">{tech.name}</p>
+                                            <span className={`w-2 h-2 rounded-full ${tech.available ? 'bg-green-400' : 'bg-red-400'}`} />
+                                            <span className="text-xs text-gray-500">#{tech.badge_id}</span>
+                                        </div>
+                                        <p className="text-gray-400 text-sm truncate">{tech.specialization} Specialist</p>
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-
+                                <div className="flex items-center gap-3 pl-16 sm:pl-0">
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${tech.available
-                                        ? 'bg-green-500/20 text-green-400'
-                                        : 'bg-red-500/20 text-red-400'
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : 'bg-red-500/20 text-red-400'
                                         }`}>
                                         {tech.available ? 'Available' : 'Busy'}
                                     </span>

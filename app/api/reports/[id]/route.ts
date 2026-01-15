@@ -5,6 +5,7 @@ interface Report {
     id: string;
     user_id: string;
     user_name: string;
+    user_phone?: string;
     category: string;
     description: string;
     image_url?: string;

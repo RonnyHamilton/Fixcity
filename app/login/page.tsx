@@ -6,7 +6,7 @@ import { User, Shield, Wrench, ArrowLeft, ArrowRight, Zap } from 'lucide-react';
 
 export default function LoginSelectionPage() {
     return (
-        <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-[#0a0f16] selection:bg-primary/30 selection:text-primary-foreground">
+        <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-y-auto overflow-x-hidden bg-[#0a0f16] selection:bg-primary/30 selection:text-primary-foreground">
             {/* Background Atmosphere */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />

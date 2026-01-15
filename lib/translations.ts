@@ -46,7 +46,8 @@ export const translations = {
         noTasksMatch: 'No tasks match your search',
         noTasksStatus: 'No tasks with this status',
         searchTasks: 'Search tasks...',
-        totalTasks: 'total tasks assigned'
+        totalTasks: 'total tasks assigned',
+        resolutionDetails: 'Resolution Details'
     },
     hi: {
         goodMorning: 'शुभ प्रभात',
@@ -95,7 +96,8 @@ export const translations = {
         noTasksMatch: 'कोई कार्य आपकी खोज से मेल नहीं खाता',
         noTasksStatus: 'इस स्थिति के साथ कोई कार्य नहीं',
         searchTasks: 'कार्य खोजें...',
-        totalTasks: 'कुल कार्य आवंटित'
+        totalTasks: 'कुल कार्य आवंटित',
+        resolutionDetails: 'समाधान विवरण'
     },
     ta: {
         goodMorning: 'காலை வணக்கம்',
@@ -144,7 +146,8 @@ export const translations = {
         noTasksMatch: 'உங்கள் தேடலுக்கு எந்த பணிகளும் பொருந்தவில்லை',
         noTasksStatus: 'இந்த நிலையுடன் எந்த பணிகளும் இல்லை',
         searchTasks: 'பணிகளைத் தேடு...',
-        totalTasks: 'மொத்த பணிகள் ஒதுக்கப்பட்டுள்ளன'
+        totalTasks: 'மொத்த பணிகள் ஒதுக்கப்பட்டுள்ளன',
+        resolutionDetails: 'தீர்வு விவரங்கள்'
     },
     te: {
         goodMorning: 'శుభోదయం',
@@ -193,7 +196,8 @@ export const translations = {
         noTasksMatch: 'మీ శోధనకు సరిపోయే పనులు లేవు',
         noTasksStatus: 'ఈ స్థితితో పనులు లేవు',
         searchTasks: 'పనులను శోధించండి...',
-        totalTasks: 'మొత్తం పనులు కేటాయించబడ్డాయి'
+        totalTasks: 'మొత్తం పనులు కేటాయించబడ్డాయి',
+        resolutionDetails: 'పరిష్కార వివరాలు'
     }
 } as const;
 

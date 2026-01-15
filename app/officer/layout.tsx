@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
-import { LayoutDashboard, FileText, Users, BarChart3, LogOut, Bell, Search, Settings, User, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, BarChart3, LogOut, Bell, Search, Settings, User, MessageCircle, Menu, X } from 'lucide-react';
 
 export default function OfficerLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const { user, isAuthenticated, role, logout } = useAuthStore();
     const [showNotifications, setShowNotifications] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Mock notifications state
     const [notifications, setNotifications] = useState([
@@ -80,8 +81,25 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
                 <div className="absolute bottom-[-20%] left-[-10%] w-[50rem] h-[50rem] rounded-full bg-purple-900/10 blur-[140px]" />
             </div>
 
+            {/* Mobile Overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className="fixed left-0 top-0 h-full w-64 bg-[#020617]/80 backdrop-blur-xl border-r border-white/5 flex flex-col z-50">
+            <aside className={`fixed left-0 top-0 h-full w-64 bg-[#020617]/95 backdrop-blur-xl border-r border-white/5 flex flex-col z-50 transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                }`}>
+                {/* Close Button (Mobile Only) */}
+                <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="absolute top-4 right-4 lg:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+
                 {/* Logo */}
                 <div className="p-6 border-b border-white/5">
                     <div className="flex items-center gap-3">
@@ -104,6 +122,7 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
                                 <li key={item.href}>
                                     <Link
                                         href={item.href}
+                                        onClick={() => setSidebarOpen(false)}
                                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
                                     >
                                         <Icon className="w-5 h-5" />
@@ -137,12 +156,18 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 ml-64 flex flex-col min-h-screen">
+            <div className="flex-1 lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
                 {/* Header */}
-                <header className="sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4">
+                <header className="sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 px-4 sm:px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
-
+                            {/* Hamburger Menu Button (Mobile Only) */}
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white transition-all"
+                            >
+                                <Menu className="w-5 h-5" />
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-4 relative">
@@ -158,7 +183,7 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
 
                             {/* Notification Dropdown */}
                             {showNotifications && (
-                                <div className="absolute top-full right-0 mt-2 w-96 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden">
+                                <div className="absolute top-full right-0 mt-2 w-72 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden">
                                     <div className="p-4 border-b border-white/5 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <h3 className="text-sm font-semibold text-white">Notifications</h3>
@@ -171,20 +196,20 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
                                             Mark all as read
                                         </button>
                                     </div>
-                                    <div className="max-h-[400px] overflow-y-auto">
+                                    <div className="max-h-[300px] overflow-y-auto">
                                         {notifications.length === 0 ? (
-                                            <div className="p-8 text-center text-gray-500 text-sm">
+                                            <div className="p-6 text-center text-gray-500 text-xs">
                                                 No notifications
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <div key={notif.id} className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-white/[0.02]' : ''}`}>
+                                                <div key={notif.id} className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-white/[0.02]' : ''}`}>
                                                     <div className="flex gap-3">
-                                                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${notif.type === 'alert' ? 'bg-red-500' : 'bg-blue-500'}`} />
+                                                        <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${notif.type === 'alert' ? 'bg-red-500' : 'bg-blue-500'}`} />
                                                         <div>
-                                                            <p className={`text-sm text-white mb-1 ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                                                            <p className="text-xs text-gray-400 mb-2">{notif.message}</p>
-                                                            <p className="text-[10px] text-gray-500">{notif.time}</p>
+                                                            <p className={`text-xs text-white mb-0.5 ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
+                                                            <p className="text-[11px] text-gray-400 mb-1 leading-tight">{notif.message}</p>
+                                                            <p className="text-[10px] text-gray-600">{notif.time}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -200,7 +225,7 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 p-6">
+                <main className="flex-1 p-4 sm:p-6">
                     {children}
                 </main>
             </div>

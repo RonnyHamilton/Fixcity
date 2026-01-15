@@ -195,7 +195,8 @@ export default function OfficerReportsPage() {
 
             {/* Reports Table */}
             <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-white/5">
@@ -230,8 +231,8 @@ export default function OfficerReportsPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-white font-medium text-sm truncate max-w-[200px]">{report.description}</p>
+                                                <div className="min-w-0 max-w-[200px]">
+                                                    <p className="text-white font-medium text-sm truncate">{report.description}</p>
                                                     <p className="text-gray-500 text-xs">#{report.id.slice(-6)}</p>
                                                 </div>
                                             </div>
@@ -240,18 +241,18 @@ export default function OfficerReportsPage() {
                                             <span className="text-sm text-gray-300">{report.category.replace('_', ' ')}</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${status.color} ${status.bg}`}>
+                                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${status.color} ${status.bg}`}>
                                                 <StatusIcon className="w-3 h-3" />
                                                 {status.label}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${priority.color} ${priority.bg}`}>
+                                            <span className={`text-xs font-bold px-2 py-1 rounded whitespace-nowrap ${priority.color} ${priority.bg}`}>
                                                 {report.priority}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-sm text-gray-400">{formatDate(report.created_at)}</span>
+                                            <span className="text-sm text-gray-400 whitespace-nowrap">{formatDate(report.created_at)}</span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <button
@@ -269,6 +270,54 @@ export default function OfficerReportsPage() {
                             })}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-white/5">
+                    {filteredReports.map((report) => {
+                        const priority = getPriorityConfig(report.priority);
+                        const status = getStatusConfig(report.status);
+
+                        return (
+                            <div
+                                key={report.id}
+                                onClick={() => setSelectedReport(report)}
+                                className="p-4 flex gap-4 active:bg-white/5 transition-colors"
+                            >
+                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                                    {report.image_url ? (
+                                        <img src={report.image_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <FileText className="w-6 h-6 text-gray-600" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <p className="font-medium text-white text-sm line-clamp-2">{report.description}</p>
+                                        <span className="text-xs text-gray-500 ml-2">#{report.id.slice(-6)}</span>
+                                    </div>
+
+                                    <p className="text-xs text-gray-400 mb-2 capitalize">{report.category.replace('_', ' ')}</p>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${status.color} ${status.bg}`}>
+                                            {status.label}
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${priority.color} ${priority.bg}`}>
+                                            {report.priority}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex justify-end items-center mt-3 pt-2 border-t border-white/5">
+                                        <span className="text-[10px] text-gray-600">{formatDate(report.created_at)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {filteredReports.length === 0 && (

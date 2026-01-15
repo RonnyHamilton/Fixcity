@@ -14,6 +14,7 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
     const { user, isAuthenticated, role, logout, language } = useAuthStore();
     const { notifications, markAsRead, markAllAsRead, addNotification } = useNotificationStore();
     const [showNotifications, setShowNotifications] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const notificationRef = useRef<HTMLDivElement>(null);
     const t = translations[language];
 
@@ -78,22 +79,97 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
                 <div className="absolute bottom-[-20%] left-[-10%] w-[50rem] h-[50rem] rounded-full bg-yellow-900/10 blur-[140px]" />
             </div>
 
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4">
-                <div className="mx-auto max-w-[1400px] flex items-center justify-between">
-                    {/* Logo */}
+            {/* Mobile Sidebar Overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Mobile Sidebar */}
+            <aside className={`fixed inset-y-0 left-0 w-64 bg-[#0f172a]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 text-emerald-400 flex items-center justify-center bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                            <span className="material-symbols-outlined text-2xl">engineering</span>
+                        <div className="w-8 h-8 text-emerald-400 flex items-center justify-center bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                            <span className="material-symbols-outlined text-xl">engineering</span>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white">FixCity</h2>
-                            <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">{t.fieldTechnician}</p>
+                        <span className="font-bold text-white">FixCity</span>
+                    </div>
+                    <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="p-4 space-y-1">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setSidebarOpen(false)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActive
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                <Icon className="w-5 h-5" />
+                                {item.label}
+                            </Link>
+                        );
+                    })}
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-[#0f172a]/50">
+                    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                            <User className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+                            <p className="text-xs text-gray-400 truncate">{user?.specialization}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all text-sm font-medium"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            {/* Header */}
+            <header className="sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 px-4 sm:px-6 py-4">
+                <div className="mx-auto max-w-[1400px] flex items-center justify-between">
+                    {/* Left Section: Mobile Menu + Logo */}
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5"
+                        >
+                            <span className="material-symbols-outlined">menu</span>
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 text-emerald-400 flex items-center justify-center bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                <span className="material-symbols-outlined text-2xl">engineering</span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">FixCity</h2>
+                                <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden sm:block">{t.fieldTechnician}</p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Navigation */}
-                    <nav className="flex items-center gap-1 bg-white/5 rounded-full px-2 py-1 backdrop-blur-md border border-white/5">
+                    {/* Desktop Navigation */}
+                    <nav className="hidden lg:flex items-center gap-1 bg-white/5 rounded-full px-2 py-1 backdrop-blur-md border border-white/5">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = pathname === item.href;
@@ -115,7 +191,7 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
                     </nav>
 
                     {/* Right Section */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                         <div className="relative" ref={notificationRef}>
                             <button
                                 onClick={() => setShowNotifications(!showNotifications)}
@@ -200,7 +276,8 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
                             </AnimatePresence>
                         </div>
 
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5">
+                        {/* Desktop User Menu */}
+                        <div className="hidden lg:flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5">
                             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
                                 <User className="w-4 h-4" />
                             </div>
@@ -212,7 +289,7 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
 
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all"
+                            className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all"
                         >
                             <LogOut className="w-4 h-4" />
                         </button>
@@ -221,7 +298,7 @@ export default function TechnicianLayout({ children }: { children: React.ReactNo
             </header>
 
             {/* Main Content */}
-            <main className="flex-1 px-6 py-6 mx-auto w-full max-w-[1400px]">
+            <main className="flex-1 px-4 sm:px-6 py-6 mx-auto w-full max-w-[1400px] overflow-x-hidden">
                 {children}
             </main>
         </div>

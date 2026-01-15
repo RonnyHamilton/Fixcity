@@ -239,7 +239,7 @@ export default function PublicLoginPage() {
             </div>
 
             {/* Right Panel - Login Form */}
-            <div className="relative w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-12 min-h-screen overflow-hidden">
+            <div className="relative w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-12 min-h-screen overflow-y-auto overflow-x-hidden">
                 {/* Background Effects */}
                 <div className="absolute top-[-20%] right-[-20%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
                 <div className="absolute bottom-[-20%] left-[-20%] w-[500px] h-[500px] bg-purple-500/05 rounded-full blur-[140px] pointer-events-none" />

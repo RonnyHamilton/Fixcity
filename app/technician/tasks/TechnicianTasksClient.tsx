@@ -174,9 +174,9 @@ function TechnicianTasksContent() {
                                 key={task.id}
                                 className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden hover:border-emerald-500/30 transition-all"
                             >
-                                <div className="flex">
+                                <div className="flex flex-col sm:flex-row h-full">
                                     {/* Image */}
-                                    <div className="w-32 h-full flex-shrink-0">
+                                    <div className="w-full h-48 sm:w-32 sm:h-auto flex-shrink-0">
                                         {task.image_url ? (
                                             <img src={task.image_url} alt="" className="w-full h-full object-cover" />
                                         ) : (
@@ -187,7 +187,7 @@ function TechnicianTasksContent() {
                                     </div>
 
                                     {/* Content */}
-                                    <div className="flex-1 p-4">
+                                    <div className="flex-1 p-4 flex flex-col">
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${priority.color} ${priority.bg}`}>
                                                 {task.priority}
@@ -198,11 +198,11 @@ function TechnicianTasksContent() {
                                         </div>
                                         <h3 className="font-semibold text-white mb-1">{task.category}</h3>
                                         <p className="text-gray-400 text-sm flex items-center gap-1 mb-2">
-                                            <MapPin className="w-3 h-3" />
-                                            {task.address.slice(0, 40)}...
+                                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                                            <span className="truncate">{task.address}</span>
                                         </p>
 
-                                        <div className="flex flex-col gap-0.5 mb-3 text-xs text-gray-500">
+                                        <div className="flex flex-col gap-0.5 mb-3 text-xs text-gray-500 flex-1">
                                             <span>Reported by: {task.user_name}</span>
                                             {task.user_phone && (
                                                 <a href={`tel:${task.user_phone}`} className="text-emerald-400 hover:underline w-fit">
@@ -211,21 +211,21 @@ function TechnicianTasksContent() {
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 mt-auto pt-2 border-t border-white/5">
                                             {task.status !== 'resolved' && (
                                                 <>
                                                     <a
                                                         href={`https://www.google.com/maps/dir/?api=1&destination=${task.latitude},${task.longitude}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-all"
+                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-all"
                                                     >
                                                         <Navigation className="w-3 h-3" />
                                                         {t.directions}
                                                     </a>
                                                     <Link
                                                         href={`/technician/tasks/${task.id}`}
-                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs font-medium hover:bg-white/10 transition-all"
+                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs font-medium hover:bg-white/10 transition-all"
                                                     >
                                                         <Camera className="w-3 h-3" />
                                                         {t.resolve}
@@ -233,10 +233,13 @@ function TechnicianTasksContent() {
                                                 </>
                                             )}
                                             {task.status === 'resolved' && (
-                                                <span className="flex items-center gap-1 text-green-400 text-xs">
+                                                <Link
+                                                    href={`/technician/tasks/${task.id}`}
+                                                    className="flex items-center justify-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs w-full py-1.5 rounded-lg transition-all"
+                                                >
                                                     <CheckCircle className="w-3 h-3" />
                                                     {t.completed}
-                                                </span>
+                                                </Link>
                                             )}
                                         </div>
                                     </div>

@@ -152,7 +152,7 @@ export default function TechnicianLoginPage() {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col justify-center items-center overflow-hidden bg-[#0f172a]">
+        <div className="relative flex min-h-screen w-full flex-col justify-center items-center overflow-y-auto overflow-x-hidden bg-[#0f172a]">
             {/* Background */}
             <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-slate-950" />
@@ -174,16 +174,29 @@ export default function TechnicianLoginPage() {
             </div>
 
             {/* Logo */}
-            <div className="absolute left-0 top-0 z-50 p-6 sm:p-10">
+            <div className="relative sm:absolute left-0 top-0 z-50 p-6 sm:p-10 w-full sm:w-auto flex justify-start sm:block shrink-0">
                 <div className="flex items-center gap-3.5">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 border border-white/10 shadow-lg backdrop-blur-md">
                         <span className="material-symbols-outlined text-[24px] text-blue-400">handyman</span>
                     </div>
-                    <div className="flex flex-col justify-center">
+                    <div className="flex flex-col justify-center text-left">
                         <span className="font-display text-lg font-bold text-white tracking-tight leading-none">FixCity</span>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400/80 mt-0.5">Technician Portal</span>
                     </div>
                 </div>
+            </div>
+
+            {/* Back Button */}
+            <div className="absolute right-0 top-0 z-50 p-6 sm:p-10">
+                <Link
+                    href="/login"
+                    className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-white transition-colors group"
+                >
+                    <span className="hidden sm:inline">Back to Login Options</span>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 border border-white/10 group-hover:bg-white/10 group-hover:border-white/20 transition-all backdrop-blur-md">
+                        <ArrowLeft className="w-4 h-4" />
+                    </div>
+                </Link>
             </div>
 
             {/* Main Content */}
@@ -361,10 +374,7 @@ export default function TechnicianLoginPage() {
                         <span>Encrypted Terminal Access</span>
                     </div>
 
-                    <Link href="/login" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-white transition-colors">
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Login Options
-                    </Link>
+
 
                     <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em]">© 2026 FixCity Governance Systems</p>
                 </div>

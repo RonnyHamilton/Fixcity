@@ -24,8 +24,12 @@ interface Task {
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id: string;
     assigned_officer_id: string;
+    resolution_notes?: string;
+    updated_at: string;
     created_at: string;
 }
+
+import { parseResolutionNotes } from '@/lib/resolution-utils';
 
 export default function TaskResolvePage() {
     const router = useRouter();
@@ -167,6 +171,8 @@ export default function TaskResolvePage() {
         );
     }
 
+    const { text: resolutionText, imageUrl: resolutionImage } = parseResolutionNotes(task.resolution_notes || '');
+
     const getPriorityConfig = (priority: string) => {
         const configs: Record<string, { color: string; bg: string }> = {
             urgent: { color: 'text-red-400', bg: 'bg-red-500/20' },
@@ -202,22 +208,26 @@ export default function TaskResolvePage() {
                         </span>
                         <span className="text-xs text-gray-500">#{task.id.slice(-6)}</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-white">{t.resolveTask}</h1>
+                    <h1 className="text-2xl font-bold text-white">
+                        {task.status === 'resolved' ? t.completed : t.resolveTask}
+                    </h1>
                 </div>
-                <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${task.latitude},${task.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-all"
-                >
-                    <Navigation className="w-4 h-4" />
-                    {t.getDirections}
-                </a>
+                <div className="flex gap-2">
+                    <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${task.latitude},${task.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium hover:bg-emerald-500/20 transition-all"
+                    >
+                        <Navigation className="w-4 h-4" />
+                        {t.getDirections}
+                    </a>
+                </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
                 {/* Task Details */}
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden">
+                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden h-fit">
                     {/* Image */}
                     <div className="relative h-48">
                         {task.image_url ? (
@@ -270,91 +280,136 @@ export default function TaskResolvePage() {
                     </div>
                 </div>
 
-                {/* Resolution Form */}
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                        <Check className="w-5 h-5 text-emerald-400" />
-                        {t.submitResolution}
-                    </h2>
-
-                    <div className="space-y-6">
-                        {/* Proof Upload */}
-                        <div>
-                            <label className="text-sm font-medium text-white/90 mb-2 block">
-                                {t.proofOfCompletion} *
-                            </label>
-                            {proofPreview ? (
-                                <div className="relative rounded-xl overflow-hidden border border-white/10">
-                                    <img src={proofPreview} alt="Proof" className="w-full h-40 object-cover" />
-                                    <button
-                                        onClick={() => {
-                                            setProofImage(null);
-                                            setProofPreview(null);
-                                        }}
-                                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center text-white"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-slate-900/40 p-8 transition-all hover:bg-slate-800/60 hover:border-emerald-500/50 cursor-pointer"
-                                >
-                                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-                                        <Camera className="w-6 h-6" />
-                                    </div>
-                                    <p className="text-sm font-bold text-center text-white">{t.uploadCompletionPhoto}</p>
-                                    <p className="text-xs text-gray-500 text-center mt-1">{t.takePhotoDesc}</p>
-                                </div>
-                            )}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={handleFileSelect}
-                                className="hidden"
-                            />
-                        </div>
-
-                        {/* Resolution Notes */}
-                        <div>
-                            <label className="text-sm font-medium text-white/90 mb-2 block">
-                                {t.resolutionNotes} *
-                            </label>
-                            <textarea
-                                value={resolutionNotes}
-                                onChange={(e) => setResolutionNotes(e.target.value)}
-                                className="w-full h-32 rounded-xl bg-white/5 border border-white/10 p-4 text-white placeholder-gray-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 outline-none resize-none"
-                                placeholder={t.describeWork}
-                            />
-                        </div>
-
-                        {/* Error */}
-                        {error && (
-                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center">
-                                <p className="text-red-400 text-sm">{error}</p>
+                {/* Status / Resolution Panel */}
+                {task.status === 'resolved' ? (
+                    <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-emerald-500/20 p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                                <Check className="w-4 h-4 text-green-500" />
                             </div>
-                        )}
+                            <h2 className="text-lg font-bold text-white">{t.resolutionDetails}</h2>
+                        </div>
 
-                        {/* Submit Button */}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                        >
-                            {submitting ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    <Check className="w-5 h-5" />
-                                    {t.markResolved}
-                                </>
+                        <div className="space-y-6">
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{t.resolutionNotes}</p>
+                                <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                                    <p className="text-gray-300 text-sm whitespace-pre-wrap">{resolutionText}</p>
+                                </div>
+                            </div>
+
+                            {resolutionImage && (
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{t.proofOfCompletion}</p>
+                                    <div className="relative rounded-xl overflow-hidden border border-white/10 group">
+                                        <img src={resolutionImage} alt="Resolution Proof" className="w-full h-48 object-cover" />
+                                        <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <p className="text-xs text-white text-center">Verified Proof</p>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
-                        </button>
+
+                            <div className="pt-4 border-t border-white/5">
+                                <p className="text-xs text-gray-500">
+                                    Resolved on {new Date(task.updated_at).toLocaleDateString('en-IN', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
+                        <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                            <Check className="w-5 h-5 text-emerald-400" />
+                            {t.submitResolution}
+                        </h2>
+
+                        <div className="space-y-6">
+                            {/* Proof Upload */}
+                            <div>
+                                <label className="text-sm font-medium text-white/90 mb-2 block">
+                                    {t.proofOfCompletion} *
+                                </label>
+                                {proofPreview ? (
+                                    <div className="relative rounded-xl overflow-hidden border border-white/10">
+                                        <img src={proofPreview} alt="Proof" className="w-full h-40 object-cover" />
+                                        <button
+                                            onClick={() => {
+                                                setProofImage(null);
+                                                setProofPreview(null);
+                                            }}
+                                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center text-white"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-slate-900/40 p-8 transition-all hover:bg-slate-800/60 hover:border-emerald-500/50 cursor-pointer"
+                                    >
+                                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                                            <Camera className="w-6 h-6" />
+                                        </div>
+                                        <p className="text-sm font-bold text-center text-white">{t.uploadCompletionPhoto}</p>
+                                        <p className="text-xs text-gray-500 text-center mt-1">{t.takePhotoDesc}</p>
+                                    </div>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
+                            </div>
+
+                            {/* Resolution Notes */}
+                            <div>
+                                <label className="text-sm font-medium text-white/90 mb-2 block">
+                                    {t.resolutionNotes} *
+                                </label>
+                                <textarea
+                                    value={resolutionNotes}
+                                    onChange={(e) => setResolutionNotes(e.target.value)}
+                                    className="w-full h-32 rounded-xl bg-white/5 border border-white/10 p-4 text-white placeholder-gray-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 outline-none resize-none"
+                                    placeholder={t.describeWork}
+                                />
+                            </div>
+
+                            {/* Error */}
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center">
+                                    <p className="text-red-400 text-sm">{error}</p>
+                                </div>
+                            )}
+
+                            {/* Submit Button */}
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                            >
+                                {submitting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Check className="w-5 h-5" />
+                                        {t.markResolved}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

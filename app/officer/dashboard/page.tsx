@@ -120,13 +120,13 @@ export default function OfficerDashboard() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Welcome, {user?.name}</h1>
                     <p className="text-gray-400">{user?.area} • Officer Dashboard</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <select className="bg-white/5 border border-white/10 text-white rounded-lg px-4 py-2 text-sm">
+                    <select className="bg-white/5 border border-white/10 text-white rounded-lg px-4 py-2 text-sm w-full sm:w-auto">
                         <option className="bg-[#0f172a] text-white">Last 7 days</option>
                         <option className="bg-[#0f172a] text-white">Last 30 days</option>
                         <option className="bg-[#0f172a] text-white">This Month</option>
@@ -135,7 +135,7 @@ export default function OfficerDashboard() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-red-500/20 to-red-500/5 backdrop-blur-xl rounded-xl p-5 border border-red-500/20">
                     <div className="flex items-center justify-between mb-3">
                         <div className="w-10 h-10 rounded-lg bg-red-500/30 flex items-center justify-center text-red-400">
@@ -206,7 +206,7 @@ export default function OfficerDashboard() {
                     </button>
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {technicians.slice(0, 6).map((tech) => {
                         const assignedTasks = canonicalReports.filter(
                             r => r.assigned_technician_id === tech.id
@@ -289,7 +289,7 @@ export default function OfficerDashboard() {
                 {/* Reports List */}
                 <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden">
                     {/* Filters */}
-                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                    <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex gap-2">
                             {['all', 'pending', 'in_progress'].map((f) => (
                                 <button
