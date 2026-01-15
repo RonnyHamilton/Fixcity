@@ -24,7 +24,7 @@ Run this first so you get the URL to give to the frontend.
 3.  Connect your GitHub repository (`FixCity`).
 4.  **Configure the Service:**
     *   **Name**: `fixcity-face-server`
-    *   **Root Directory**: `fixcity/python` (IMPORTANT! This tells Render where the python code is)
+    *   **Root Directory**: `python` (This is where requirements.txt is located)
     *   **Environment**: `Python 3`
     *   **Build Command**: `pip install -r requirements.txt`
     *   **Start Command**: `uvicorn face_server:app --host 0.0.0.0 --port $PORT`

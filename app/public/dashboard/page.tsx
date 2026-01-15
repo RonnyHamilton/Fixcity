@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
@@ -24,7 +24,7 @@ interface Report {
     assigned_technician_id?: string;
 }
 
-export default function PublicDashboard() {
+function DashboardContent() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('q')?.toLowerCase() || '';
     const { user } = useAuthStore();
@@ -608,5 +608,17 @@ export default function PublicDashboard() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function PublicDashboard() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        }>
+            <DashboardContent />
+        </Suspense>
     );
 }

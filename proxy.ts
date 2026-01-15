@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { rateLimit } from './lib/rate-limit';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     // Only intercept API calls
     if (request.nextUrl.pathname.startsWith('/api')) {
         const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
