@@ -10,7 +10,7 @@ export default function PublicLoginPage() {
     const router = useRouter();
     const { login } = useAuthStore();
 
-    const [step, setStep] = useState<'aadhaar' | 'otp'>('otp'); // Start with OTP visible for master OTP
+    const [step, setStep] = useState<'aadhaar' | 'otp'>('aadhaar');
     const [aadhaar, setAadhaar] = useState('');
     const [mobile, setMobile] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']); // 6-digit OTP
@@ -309,19 +309,9 @@ export default function PublicLoginPage() {
                                         type="tel"
                                         value={mobile}
                                         onChange={handleMobileChange}
-                                        className="w-full h-12 rounded-xl glass-input pl-12 pr-24 text-base tracking-wide font-medium bg-white/5 focus:bg-white/10"
+                                        className="w-full h-12 rounded-xl glass-input pl-12 pr-4 text-base tracking-wide font-medium bg-white/5 focus:bg-white/10"
                                         placeholder="98765 43210"
                                     />
-                                    {step === 'aadhaar' && (
-                                        <button
-                                            type="button"
-                                            onClick={handleSendOTP}
-                                            disabled={loading || mobile.length !== 10}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-                                        >
-                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get OTP'}
-                                        </button>
-                                    )}
                                 </div>
                             </div>
 
@@ -329,9 +319,13 @@ export default function PublicLoginPage() {
                             <div className={`flex flex-col gap-4 overflow-hidden transition-all duration-300 ${step === 'otp' ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="flex justify-between items-end px-1">
                                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verification Code</label>
-                                    <span className="text-xs text-slate-500">
-                                        Enter OTP or use Master OTP
-                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep('aadhaar')}
+                                        className="text-xs text-primary hover:underline font-bold"
+                                    >
+                                        Change Details
+                                    </button>
                                 </div>
 
                                 <div className="flex gap-2 justify-between">
@@ -375,23 +369,26 @@ export default function PublicLoginPage() {
                             )}
 
                             {/* Submit Button */}
-                            {step === 'otp' && (
-                                <button
-                                    type="button"
-                                    onClick={handleVerifyOTP}
-                                    disabled={loading}
-                                    className="mt-2 w-full h-12 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-white/10 disabled:opacity-50"
-                                >
-                                    {loading ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <>
-                                            Check & Verify
-                                            <CheckCircle className="w-5 h-5" />
-                                        </>
-                                    )}
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={step === 'aadhaar' ? handleSendOTP : handleVerifyOTP}
+                                disabled={loading}
+                                className="mt-2 w-full h-12 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-white/10 disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : step === 'aadhaar' ? (
+                                    <>
+                                        Send OTP Code
+                                        <Smartphone className="w-5 h-5" />
+                                    </>
+                                ) : (
+                                    <>
+                                        Check & Verify
+                                        <CheckCircle className="w-5 h-5" />
+                                    </>
+                                )}
+                            </button>
                         </form>
                     </div>
 
