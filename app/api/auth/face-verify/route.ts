@@ -25,8 +25,7 @@ export async function POST(request: NextRequest) {
         console.log(`Calling Python face verification API for ${userType || 'officer'} badge: ${badgeId}`);
 
         try {
-            const response = await fetch(`${PYTHON_API_URL}/verify-face`, {
-
+            const response = await fetch(`${PYTHON_API_URL}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { FileText, CheckCircle, Clock, AlertCircle, Plus, TrendingUp, Eye, X, MapPin, Calendar, Tag, Trash2, Phone, BadgeCheck } from 'lucide-react';
+import { parseResolutionNotes } from '@/lib/resolution-utils';
 
 interface Report {
     id: string;
@@ -486,19 +487,29 @@ function DashboardContent() {
                                 </div>
 
                                 {/* Resolution Notes */}
-                                {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (
-                                    <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-5">
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
-                                                <CheckCircle className="w-5 h-5" />
+                                {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (() => {
+                                    const { text, imageUrl } = parseResolutionNotes(selectedReport.resolution_notes);
+                                    return (
+                                        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-5 space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-bold text-green-400 uppercase tracking-wider mb-1">Resolution Notes</p>
+                                                    {text && <p className="text-white">{text}</p>}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-green-400 uppercase tracking-wider mb-1">Resolution Notes</p>
-                                                <p className="text-white">{selectedReport.resolution_notes}</p>
-                                            </div>
+                                            {imageUrl && (
+                                                <img
+                                                    src={imageUrl}
+                                                    alt="Resolution proof"
+                                                    className="w-full rounded-lg border border-green-500/30"
+                                                />
+                                            )}
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 {/* Technician Contact Card */}
                                 {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved') && (

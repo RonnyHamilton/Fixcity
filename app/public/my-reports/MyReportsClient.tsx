@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import { FileText, Clock, CheckCircle, AlertCircle, ChevronRight, Plus, X, MapPin, Calendar, Tag, Trash2, Phone, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { parseResolutionNotes } from '@/lib/resolution-utils';
 
 interface Report {
     id: string;
@@ -313,12 +314,22 @@ function MyReportsContent() {
                                         )}
                                     </div>
 
-                                    {report.resolution_notes && (
-                                        <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                            <p className="text-green-400 text-sm font-medium mb-1">Resolution Notes:</p>
-                                            <p className="text-gray-300 text-sm">{report.resolution_notes}</p>
-                                        </div>
-                                    )}
+                                    {report.resolution_notes && (() => {
+                                        const { text, imageUrl } = parseResolutionNotes(report.resolution_notes);
+                                        return (
+                                            <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg space-y-2">
+                                                <p className="text-green-400 text-sm font-medium">Resolution Notes:</p>
+                                                {text && <p className="text-gray-300 text-sm">{text}</p>}
+                                                {imageUrl && (
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt="Resolution proof"
+                                                        className="w-full rounded-lg border border-green-500/20"
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Actions */}
@@ -432,15 +443,27 @@ function MyReportsContent() {
                                         </div>
                                     </div>
 
-                                    {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (
-                                        <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                                            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
-                                            <div>
-                                                <p className="text-xs text-green-400 mb-1">Resolution Notes</p>
-                                                <p className="text-white">{selectedReport.resolution_notes}</p>
+                                    {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (() => {
+                                        const { text, imageUrl } = parseResolutionNotes(selectedReport.resolution_notes);
+                                        return (
+                                            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl space-y-3">
+                                                <div className="flex items-start gap-3">
+                                                    <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+                                                    <div className="flex-1">
+                                                        <p className="text-xs text-green-400 mb-1">Resolution Notes</p>
+                                                        {text && <p className="text-white">{text}</p>}
+                                                    </div>
+                                                </div>
+                                                {imageUrl && (
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt="Resolution proof"
+                                                        className="w-full rounded-lg border border-green-500/30"
+                                                    />
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {/* Technician Contact Card */}
                                     {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved') && (

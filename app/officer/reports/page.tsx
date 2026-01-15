@@ -6,6 +6,7 @@ import {
     FileText, Clock, CheckCircle, AlertTriangle, Filter,
     MapPin, ChevronRight, Search, ChevronDown, MoreVertical, UserPlus, Loader2
 } from 'lucide-react';
+import { parseResolutionNotes } from '@/lib/resolution-utils';
 
 interface Report {
     id: string;
@@ -17,6 +18,7 @@ interface Report {
     status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
+    resolution_notes?: string;
     created_at: string;
 }
 
@@ -366,6 +368,32 @@ export default function OfficerReportsPage() {
                                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider block mb-2">Date Reported</label>
                                 <p className="text-white text-base">{formatDate(selectedReport.created_at)}</p>
                             </div>
+
+                            {/* Resolution Notes */}
+                            {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (() => {
+                                const { text, imageUrl } = parseResolutionNotes(selectedReport.resolution_notes);
+                                return (
+                                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5 space-y-3">
+                                        <div className="flex items-start gap-3">
+                                            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+                                            <div className="flex-1">
+                                                <label className="text-xs font-bold text-green-400 uppercase tracking-wider mb-2 block">Resolution Notes</label>
+                                                {text && <p className="text-white text-base">{text}</p>}
+                                            </div>
+                                        </div>
+                                        {imageUrl && (
+                                            <div>
+                                                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider block mb-2">Proof of Completion</label>
+                                                <img
+                                                    src={imageUrl}
+                                                    alt="Resolution proof"
+                                                    className="w-full rounded-lg border border-green-500/30"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Modal Footer - Technician Assignment */}
