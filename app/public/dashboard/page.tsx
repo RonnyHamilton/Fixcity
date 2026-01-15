@@ -31,6 +31,11 @@ function DashboardContent() {
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Delete state
     const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
@@ -53,12 +58,20 @@ function DashboardContent() {
     }, [selectedReport]);
 
     useEffect(() => {
-        if (user?.id) {
+        if (mounted && user?.id) {
             fetchUserReports();
-        } else {
+        } else if (mounted) {
             console.log("User not loaded yet");
         }
-    }, [user?.id]);
+    }, [user?.id, mounted]);
+
+    if (!mounted) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     const fetchUserReports = async () => {
         try {
