@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { ReportSchema } from '@/lib/schemas';
 
 // GET - List all reports with optional filters
 export async function GET(request: NextRequest) {
@@ -55,38 +56,39 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
 
-        // Validate required fields
-        const requiredFields = ['user_id', 'category', 'description', 'location', 'latitude', 'longitude'];
-        const missingFields = requiredFields.filter(field => !body[field]);
+        // Strict Input Validation via Zod
+        const result = ReportSchema.safeParse(body);
 
-        if (missingFields.length > 0) {
+        if (!result.success) {
             return NextResponse.json(
-                { error: `Missing required fields: ${missingFields.join(', ')}` },
+                { error: 'Validation failed', details: result.error.flatten().fieldErrors },
                 { status: 400 }
             );
         }
+
+        const data = result.data; // Type-safe data
 
         // Create report with generated ID
         const reportId = `RPT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
         const newReport = {
             id: reportId,
-            user_id: body.user_id,
-            user_name: body.user_name || 'Anonymous', // Add required user_name
-            category: body.category,
-            description: body.description,
-            address: body.location || body.address,
-            latitude: body.latitude,
-            longitude: body.longitude,
-            image_url: body.image_url || null,
+            user_id: data.user_id,
+            user_name: data.user_name,
+            category: data.category,
+            description: data.description,
+            address: data.location, // Schema guarantees location maps to address
+            latitude: data.latitude,
+            longitude: data.longitude,
+            image_url: data.image_url || null,
             status: 'pending',
-            priority: body.priority || 'medium',
+            priority: 'medium', // Default to medium, can be updated by officer later
             assigned_technician_id: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
 
-        const { data, error } = await supabase
+        const { data: dbData, error } = await supabase
             .from('reports')
             .insert([newReport])
             .select()
@@ -101,9 +103,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log(`[Reports API] Created report ID: ${data.id}`);
+        console.log(`[Reports API] Created report ID: ${dbData.id}`);
 
-        return NextResponse.json(data, { status: 201 });
+        return NextResponse.json(dbData, { status: 201 });
     } catch (error: any) {
         console.error('[Reports API] Error:', error);
         return NextResponse.json(
