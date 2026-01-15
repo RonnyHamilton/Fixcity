@@ -2,7 +2,7 @@
   {
     "id": "OFF001",
     "badge_id": "IPS2024001",
-    "name": "Inspector Ronny",
+    "name": "Inspector Rahul",
     "email": "sharma@fixcity.gov.in",
     "password": "officer123",
     "area": "North District",
@@ -20,7 +20,7 @@
   {
     "id": "OFF_CHIEF",
     "badge_id": "CHIEF001",
-    "name": "Commissioner Rahul",
+    "name": "Commissioner Ronny",
     "email": "commissioner@fixcity.gov.in",
     "password": "securepass",
     "area": "Headquarters",
