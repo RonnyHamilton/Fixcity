@@ -47,7 +47,7 @@ async function runMigration() {
                 console.log('   3. Click Run');
                 console.log();
                 console.log('   Or use the online migration tool at:');
-                console.log(`   ${supabaseUrl}/project/default/sql`);
+                console.log(`   ${supabaseUrl ?? ''}/project/default/sql`);
                 process.exit(1);
             } else if (!alterError) {
                 console.log('✅ Column already exists! No migration needed.');
@@ -78,7 +78,7 @@ async function runMigration() {
         console.log();
         console.log('📝 Manual Migration Instructions:');
         console.log('   1. Go to your Supabase Dashboard SQL Editor');
-        console.log(`   2. URL: ${supabaseUrl.replace('https://', 'https://app.')}/project/default/sql`);
+        console.log(`   2. URL: ${(supabaseUrl ?? '').replace('https://', 'https://app.')}/project/default/sql`);
         console.log('   3. Run this SQL:');
         console.log();
         console.log('   ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS user_phone text;');
