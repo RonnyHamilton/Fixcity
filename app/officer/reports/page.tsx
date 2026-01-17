@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import * as React from 'react';
 import {
     FileText, Clock, CheckCircle, AlertTriangle, Filter,
-    MapPin, ChevronRight, Search, ChevronDown, MoreVertical, UserPlus, Loader2
+    MapPin, ChevronRight, Search, ChevronDown, MoreVertical, UserPlus, Loader2, X
 } from 'lucide-react';
 import { parseResolutionNotes } from '@/lib/resolution-utils';
 
@@ -39,6 +39,11 @@ export default function OfficerReportsPage() {
     const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
     const [assigning, setAssigning] = useState(false);
+    const [rejecting, setRejecting] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
         fetchReports();
@@ -77,6 +82,13 @@ export default function OfficerReportsPage() {
         if (!selectedTechnicianId || !selectedReport) return;
 
         setAssigning(true);
+        setErrorMessage('');
+        setSuccessMessage('');
+
+        console.log('[Assignment] Starting technician assignment...');
+        console.log('[Assignment] Report ID:', selectedReport.id);
+        console.log('[Assignment] Technician ID:', selectedTechnicianId);
+
         try {
             const response = await fetch(`/api/reports/${selectedReport.id}`, {
                 method: 'PATCH',
@@ -87,16 +99,63 @@ export default function OfficerReportsPage() {
                 }),
             });
 
+            const data = await response.json();
+            console.log('[Assignment] Response status:', response.status);
+            console.log('[Assignment] Response data:', data);
+
             if (response.ok) {
+                // Show success message
+                const techName = technicians.find(t => t.id === selectedTechnicianId)?.name || 'Technician';
+                setSuccessMessage(`✓ Successfully assigned ${techName} to report #${selectedReport.id.slice(-6)}`);
+
                 // Refresh reports to show updated assignment
                 await fetchReports();
                 setSelectedReport(null);
                 setSelectedTechnicianId('');
+
+                // Clear success message after 5 seconds
+                setTimeout(() => setSuccessMessage(''), 5000);
+            } else {
+                // Handle error response
+                const errorMsg = data.error || 'Failed to assign technician';
+                console.error('[Assignment] Error:', errorMsg);
+                setErrorMessage(errorMsg);
             }
         } catch (error) {
-            console.error('Failed to assign technician:', error);
+            console.error('[Assignment] Exception:', error);
+            setErrorMessage('Network error: Unable to assign technician. Please try again.');
         } finally {
             setAssigning(false);
+        }
+    };
+
+    const handleRejectReport = async () => {
+        if (!selectedReport || !rejectionReason.trim()) return;
+
+        setRejecting(true);
+        try {
+            const response = await fetch(`/api/reports/${selectedReport.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'rejected',
+                    rejection_reason: rejectionReason,
+                }),
+            });
+
+            if (response.ok) {
+                // Refresh reports and close modal
+                await fetchReports();
+                setSelectedReport(null);
+                setShowRejectModal(false);
+                setRejectionReason('');
+            } else {
+                console.error('Failed to reject report');
+            }
+        } catch (error) {
+            console.error('Error rejecting report:', error);
+        } finally {
+            setRejecting(false);
         }
     };
 
@@ -156,6 +215,28 @@ export default function OfficerReportsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Success/Error Messages */}
+            {successMessage && (
+                <div className="bg-green-500/20 border border-green-500/50 text-green-400 px-4 py-3 rounded-xl flex items-center gap-2 animate-in slide-in-from-top">
+                    <CheckCircle className="w-5 h-5" />
+                    <p className="font-medium">{successMessage}</p>
+                </div>
+            )}
+            {errorMessage && (
+                <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between animate-in slide-in-from-top">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5" />
+                        <p className="font-medium">{errorMessage}</p>
+                    </div>
+                    <button
+                        onClick={() => setErrorMessage('')}
+                        className="text-red-400 hover:text-red-300"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -505,8 +586,71 @@ export default function OfficerReportsPage() {
                                     >
                                         Close
                                     </button>
+                                    {selectedReport.status === 'in_progress' && (
+                                        <button
+                                            onClick={() => {
+                                                setShowRejectModal(true);
+                                            }}
+                                            className="w-full px-6 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-medium transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <X className="w-5 h-5" />
+                                            Reject Report
+                                        </button>
+                                    )}
                                 </>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rejection Modal */}
+            {showRejectModal && selectedReport && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => !rejecting && setShowRejectModal(false)}
+                    />
+                    <div className="relative bg-[#1e293b] rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <X className="w-6 h-6 text-red-400" />
+                            Reject Report
+                        </h3>
+                        <p className="text-gray-300 mb-4 text-sm">
+                            Please provide a reason for rejecting this report. The citizen will see this reason.
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            className="w-full bg-[#0f172a] border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-red-500 transition-colors h-32 resize-none"
+                            placeholder="e.g., Insufficient evidence, duplicate report, outside jurisdiction..."
+                            disabled={rejecting}
+                        />
+                        <div className="flex gap-3 mt-4">
+                            <button
+                                onClick={() => {
+                                    setShowRejectModal(false);
+                                    setRejectionReason('');
+                                }}
+                                disabled={rejecting}
+                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRejectReport}
+                                disabled={!rejectionReason.trim() || rejecting}
+                                className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {rejecting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                        Rejecting...
+                                    </>
+                                ) : (
+                                    'Reject'
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

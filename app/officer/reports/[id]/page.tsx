@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, User, Calendar, AlertTriangle, CheckCircle, Clock, Sparkles } from 'lucide-react';
+import { ArrowLeft, MapPin, User, Calendar, AlertTriangle, CheckCircle, Clock, Sparkles, X } from 'lucide-react';
 import Toast from '@/components/Toast';
 
 interface Report {
@@ -44,6 +44,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     const [assigning, setAssigning] = useState(false);
     const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [rejecting, setRejecting] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -93,6 +96,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 body: JSON.stringify({
                     assigned_technician_id: selectedTechnicianId,
                     assigned_officer_id: user?.id,
+                    assigned_at: new Date().toISOString(),
+                    assigned_by_name: user?.name,
                     status: 'in_progress',
                 }),
             });
@@ -108,6 +113,39 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             setToast({ message: 'An error occurred', type: 'error' });
         } finally {
             setAssigning(false);
+        }
+    };
+
+    const handleRejectReport = async () => {
+        if (!report || !rejectionReason.trim()) {
+            setToast({ message: 'Please provide a rejection reason', type: 'error' });
+            return;
+        }
+
+        setRejecting(true);
+        try {
+            const response = await fetch(`/api/reports/${report.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'rejected',
+                    rejection_reason: rejectionReason,
+                }),
+            });
+
+            if (response.ok) {
+                setToast({ message: 'Report rejected successfully', type: 'success' });
+                setShowRejectModal(false);
+                setTimeout(() => router.push('/officer/dashboard'), 1500);
+            } else {
+                const data = await response.json();
+                setToast({ message: data.error || 'Failed to reject report', type: 'error' });
+            }
+        } catch (error) {
+            console.error('Failed to reject report:', error);
+            setToast({ message: 'An error occurred', type: 'error' });
+        } finally {
+            setRejecting(false);
         }
     };
 
@@ -459,16 +497,87 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                                     <p className="text-xs text-gray-500">
                                         * Assigning will change status to "In Progress" and notify the technician.
                                     </p>
+
+                                    {/* Reject Button */}
+                                    <button
+                                        onClick={() => setShowRejectModal(true)}
+                                        className="w-full mt-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Reject Report
+                                    </button>
+                                </div>
+                            ) : report.status === 'in_progress' ? (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-gray-300">
+                                        This report is currently being worked on by a technician.
+                                    </p>
+                                    <button
+                                        onClick={() => setShowRejectModal(true)}
+                                        className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Reject Report
+                                    </button>
                                 </div>
                             ) : (
                                 <p className="text-gray-400 italic">
-                                    This report is {report.status.replace('_', ' ')}. No assignment needed.
+                                    This report is {report.status.replace('_', ' ')}. No action needed.
                                 </p>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Rejection Modal */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => !rejecting && setShowRejectModal(false)}
+                    />
+                    <div className="relative bg-[#1e293b] rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <X className="w-6 h-6 text-red-400" />
+                            Reject Report
+                        </h3>
+                        <p className="text-gray-300 mb-4 text-sm">
+                            Please provide a reason for rejecting this report. The citizen will see this reason.
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            className="w-full bg-[#0f172a] border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-red-500 transition-colors h-32 resize-none"
+                            placeholder="e.g., Insufficient evidence, duplicate report, outside jurisdiction..."
+                            disabled={rejecting}
+                        />
+                        <div className="flex gap-3 mt-4">
+                            <button
+                                onClick={() => setShowRejectModal(false)}
+                                disabled={rejecting}
+                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRejectReport}
+                                disabled={!rejectionReason.trim() || rejecting}
+                                className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {rejecting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                        Rejecting...
+                                    </>
+                                ) : (
+                                    'Reject'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Toast Notification */}
             {

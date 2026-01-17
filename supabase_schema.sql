@@ -6,6 +6,7 @@ create table public.reports (
   id text primary key,
   user_id text not null,
   user_name text not null,
+  user_phone text,
   category text not null,
   description text not null,
   image_url text,

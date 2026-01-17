@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/store';
 import {
     AlertTriangle, Clock, CheckCircle, TrendingUp,
     MapPin, User, ChevronRight, Filter, MoreVertical,
-    ArrowUpRight, ArrowDownRight, Users, Wrench
+    ArrowUpRight, ArrowDownRight, Users, Wrench, X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -41,6 +41,10 @@ export default function OfficerDashboard() {
     const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [rejecting, setRejecting] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [reportToReject, setReportToReject] = useState<string | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -107,6 +111,36 @@ export default function OfficerDashboard() {
         if (hours < 24) return `${hours}h ago`;
         const days = Math.floor(hours / 24);
         return `${days}d ago`;
+    };
+
+    const handleRejectReport = async () => {
+        if (!reportToReject || !rejectionReason.trim()) return;
+
+        setRejecting(true);
+        try {
+            const response = await fetch(`/api/reports/${reportToReject}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'rejected',
+                    rejection_reason: rejectionReason,
+                }),
+            });
+
+            if (response.ok) {
+                // Refresh data to show updated list
+                await fetchData();
+                setShowRejectModal(false);
+                setRejectionReason('');
+                setReportToReject(null);
+            } else {
+                console.error('Failed to reject report');
+            }
+        } catch (error) {
+            console.error('Error rejecting report:', error);
+        } finally {
+            setRejecting(false);
+        }
     };
 
     if (loading) {
@@ -184,6 +218,52 @@ export default function OfficerDashboard() {
                     <p className="text-sm text-green-300/70">Resolved Today</p>
                 </div>
             </div>
+
+            {/* Most Reported Issues Widget */}
+            {(() => {
+                const mostReported = canonicalReports
+                    .filter(r => (r.duplicate_count || 0) > 0)
+                    .sort((a, b) => (b.duplicate_count || 0) - (a.duplicate_count || 0))
+                    .slice(0, 3);
+
+                if (mostReported.length === 0) return null;
+
+                return (
+                    <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-xl rounded-xl p-6 border border-purple-500/20">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-purple-400" />
+                            Most Reported Issues
+                        </h3>
+                        <div className="space-y-3">
+                            {mostReported.map((report, index) => (
+                                <div
+                                    key={report.id}
+                                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                                    onClick={() => router.push(`/officer/reports/${report.id}`)}
+                                >
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <span className="text-2xl font-bold text-purple-400 flex-shrink-0">
+                                            #{index + 1}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-white font-medium truncate">{report.category}</p>
+                                            <p className="text-gray-400 text-sm truncate">{report.address}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <span className="px-3 py-1 bg-purple-500/20 text-purple-300 text-sm font-semibold rounded">
+                                            {(report.duplicate_count || 0) + 1} reports
+                                        </span>
+                                        <span className={`px-2 py-1 ${getPriorityConfig(report.priority).bg} ${getPriorityConfig(report.priority).color} text-xs font-medium rounded`}>
+                                            {getPriorityConfig(report.priority).label}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Task Assignment Overview */}
             <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
@@ -356,9 +436,22 @@ export default function OfficerDashboard() {
                                             </p>
                                         </div>
 
-                                        <div className="text-right flex-shrink-0">
+                                        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
                                             <p className="text-xs text-gray-500">{formatTimeAgo(report.created_at)}</p>
-                                            <ChevronRight className="w-4 h-4 text-gray-500 mt-2 ml-auto group-hover:text-primary transition-colors" />
+                                            {(report.status === 'pending' || report.status === 'in_progress') && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setReportToReject(report.id);
+                                                        setShowRejectModal(true);
+                                                    }}
+                                                    className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs rounded flex items-center gap-1 transition-colors"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                    Reject
+                                                </button>
+                                            )}
+                                            <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-primary transition-colors" />
                                         </div>
                                     </div>
                                 );
@@ -368,6 +461,59 @@ export default function OfficerDashboard() {
                 </div>
 
             </div>
+
+            {/* Rejection Modal */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => !rejecting && setShowRejectModal(false)}
+                    />
+                    <div className="relative bg-[#1e293b] rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <X className="w-6 h-6 text-red-400" />
+                            Reject Report
+                        </h3>
+                        <p className="text-gray-300 mb-4 text-sm">
+                            Please provide a reason for rejecting this report. The citizen will see this reason.
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            className="w-full bg-[#0f172a] border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-red-500 transition-colors h-32 resize-none"
+                            placeholder="e.g., Insufficient evidence, duplicate report, outside jurisdiction..."
+                            disabled={rejecting}
+                        />
+                        <div className="flex gap-3 mt-4">
+                            <button
+                                onClick={() => {
+                                    setShowRejectModal(false);
+                                    setRejectionReason('');
+                                    setReportToReject(null);
+                                }}
+                                disabled={rejecting}
+                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRejectReport}
+                                disabled={!rejectionReason.trim() || rejecting}
+                                className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {rejecting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                        Rejecting...
+                                    </>
+                                ) : (
+                                    'Reject'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

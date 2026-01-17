@@ -110,6 +110,8 @@ export default function TaskResolvePage() {
                 body: JSON.stringify({
                     status: 'resolved',
                     assigned_technician_id: user?.id, // Ensure technician 'owns' the resolved task
+                    resolved_at: new Date().toISOString(),
+                    resolved_by_name: user?.name,
                     resolution_notes: resolutionNotes,
                     resolution_image_url: proofPreview, // Use preview for demo
                 }),

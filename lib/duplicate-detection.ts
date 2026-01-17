@@ -187,3 +187,40 @@ export function shouldReopenResolved(
 
     return daysSinceResolved <= REOPEN_WINDOW_DAYS;
 }
+
+/**
+ * Determine how to handle a duplicate of a resolved report
+ * @returns 'reopen' | 'merge' | 'new'
+ */
+export function handleResolvedDuplicate(
+    resolvedReport: ReportForComparison,
+    newReport: ReportForComparison
+): 'reopen' | 'merge' | 'new' {
+    if (!resolvedReport.updated_at) return 'new';
+
+    const withinReopenWindow = shouldReopenResolved(resolvedReport.updated_at);
+
+    // Check if it's very similar (same exact issue)
+    const distance = calculateGeoDistance(
+        newReport.latitude,
+        newReport.longitude,
+        resolvedReport.latitude,
+        resolvedReport.longitude
+    );
+    const textSimilarity = calculateTextSimilarity(
+        newReport.description,
+        resolvedReport.description
+    );
+
+    const isVerySimilar =
+        distance < DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS &&
+        textSimilarity > DUPLICATE_THRESHOLDS.MIN_TEXT_SIMILARITY;
+
+    if (withinReopenWindow && isVerySimilar) {
+        return 'reopen'; // Same issue recurring quickly
+    } else if (isVerySimilar) {
+        return 'merge'; // Same issue but as duplicate, not reopen
+    } else {
+        return 'new'; // Different enough to be a new issue
+    }
+}

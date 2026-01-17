@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST - Create a new report
+// POST - Create a new report with duplicate detection
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -71,42 +71,154 @@ export async function POST(request: NextRequest) {
         // Create report with generated ID
         const reportId = `RPT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-        const newReport = {
+        // **DUPLICATE DETECTION** - Fetch existing canonical reports in same category
+        const { data: existingReports } = await supabase
+            .from('reports')
+            .select('*')
+            .eq('category', data.category)
+            .is('parent_report_id', null); // Only canonical reports
+
+        // Import duplicate detection utilities
+        const {
+            findPotentialDuplicates,
+            upgradePriority,
+            handleResolvedDuplicate
+        } = await import('@/lib/duplicate-detection');
+
+        const duplicateReport = {
+            id: reportId,
+            category: data.category,
+            description: data.description,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            priority: 'low' as const,
+        };
+
+        const duplicates = findPotentialDuplicates(
+            duplicateReport,
+            existingReports || []
+        );
+
+        let finalReport: any;
+        let isDuplicate = false;
+        let parentReportId: string | null = null;
+        let duplicateMessage = '';
+
+        // **SCENARIO HANDLING**
+        if (duplicates.length > 0) {
+            const parentReport = duplicates[0]; // Best match
+
+            // **SCENARIO 7: Resolved report handling**
+            if (parentReport.status === 'resolved') {
+                const action = handleResolvedDuplicate(parentReport, duplicateReport);
+
+                if (action === 'reopen') {
+                    // Reopen the resolved report
+                    const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
+                    const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
+
+                    await supabase
+                        .from('reports')
+                        .update({
+                            status: 'pending', // Reopen
+                            priority: upgradedPriority,
+                            duplicate_count: newDuplicateCount,
+                            last_reported_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', parentReport.id);
+
+                    // Link new report as child
+                    isDuplicate = true;
+                    parentReportId = parentReport.id;
+                    duplicateMessage = `Issue reopened (Report #${parentReport.id.slice(-6)})`;
+                } else if (action === 'merge') {
+                    // Merge as duplicate but don't reopen
+                    const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
+                    const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
+
+                    await supabase
+                        .from('reports')
+                        .update({
+                            duplicate_count: newDuplicateCount,
+                            priority: upgradedPriority,
+                            last_reported_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', parentReport.id);
+
+                    isDuplicate = true;
+                    parentReportId = parentReport.id;
+                    duplicateMessage = `Merged with existing report #${parentReport.id.slice(-6)}`;
+                } else {
+                    // Create as new issue (too different or too old)
+                    isDuplicate = false;
+                }
+            }
+            // **SCENARIOS 1-6: Non-resolved duplicates**
+            else {
+                const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
+                const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
+
+                // Update parent report: increase count, upgrade priority
+                await supabase
+                    .from('reports')
+                    .update({
+                        duplicate_count: newDuplicateCount,
+                        priority: upgradedPriority,
+                        last_reported_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', parentReport.id);
+
+                isDuplicate = true;
+                parentReportId = parentReport.id;
+                duplicateMessage = `Your report was added to existing issue #${parentReport.id.slice(-6)}. Priority upgraded to ${upgradedPriority}.`;
+            }
+        }
+
+        // Build final report object
+        finalReport = {
             id: reportId,
             user_id: data.user_id,
             user_name: data.user_name,
             user_phone: data.user_phone || null,
             category: data.category,
             description: data.description,
-            address: data.location, // Schema guarantees location maps to address
+            address: data.location,
             latitude: data.latitude,
             longitude: data.longitude,
             image_url: data.image_url || null,
             status: 'pending',
-            priority: 'medium', // Default to medium, can be updated by officer later
+            priority: 'low', // Child reports have low priority
             assigned_technician_id: null,
+            parent_report_id: parentReportId,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            last_reported_at: new Date().toISOString(),
         };
 
         const { data: dbData, error } = await supabase
             .from('reports')
-            .insert([newReport])
+            .insert([finalReport])
             .select()
             .single();
 
         if (error) {
             console.error('[Reports API] Create error:', error);
-            // Return actual error for debugging
             return NextResponse.json(
                 { error: `Failed to create report: ${error.message}` },
                 { status: 500 }
             );
         }
 
-        console.log(`[Reports API] Created report ID: ${dbData.id}`);
+        console.log(`[Reports API] Created report ID: ${dbData.id}${isDuplicate ? ' (duplicate)' : ''}`);
 
-        return NextResponse.json(dbData, { status: 201 });
+        return NextResponse.json({
+            ...dbData,
+            is_duplicate: isDuplicate,
+            duplicate_message: duplicateMessage || undefined,
+        }, { status: 201 });
     } catch (error: any) {
         console.error('[Reports API] Error:', error);
         return NextResponse.json(
