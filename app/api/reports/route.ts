@@ -68,25 +68,56 @@ export async function POST(request: NextRequest) {
 
         const data = result.data; // Type-safe data
 
-        // Create report with generated ID
-        const reportId = `RPT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        // ---------------------------------------------------------
+        // 1. SAME USER CHECK (Spam Prevention)
+        // ---------------------------------------------------------
+        // Check if THIS user recently reported a similar issue (active or resolved)
+        // We check reports created by this user in the last 24 hours that match category & location
+        const { data: userRecentReports } = await supabase
+            .from('reports')
+            .select('id, parent_report_id, created_at, latitude, longitude')
+            .eq('user_id', data.user_id)
+            .eq('category', data.category)
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24h
 
-        // **DUPLICATE DETECTION** - Fetch existing canonical reports in same category
-        const { data: existingReports } = await supabase
+        // Import utilities
+        const {
+            findPotentialDuplicates,
+            priorityFromCount,
+            calculateGeoDistance,
+            shouldReopenResolved,
+            DUPLICATE_THRESHOLDS
+        } = await import('@/lib/duplicate-detection');
+
+        // Check if any recent user report is a duplicate of this new one
+        const isSpam = userRecentReports?.some(existing => {
+            const dist = calculateGeoDistance(data.latitude, data.longitude, existing.latitude, existing.longitude);
+            return dist < DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS;
+        });
+
+        if (isSpam) {
+            return NextResponse.json({
+                message: "You have already reported this issue recently.",
+                is_spam: true,
+                created: false
+            }, { status: 200 });
+        }
+
+
+        // ---------------------------------------------------------
+        // 2. FETCH CANDIDATES (Global Duplicate Check)
+        // ---------------------------------------------------------
+        // Fetch ALL potential candidates (Active AND Resolved) in the same category
+        // We filter for distance in memory for precision, but could use PostGIS if available.
+        // For now, we fetch all in category (assuming mostly manageable volume per category, or add bounding box later)
+        const { data: candidates } = await supabase
             .from('reports')
             .select('*')
             .eq('category', data.category)
-            .is('parent_report_id', null); // Only canonical reports
-
-        // Import duplicate detection utilities
-        const {
-            findPotentialDuplicates,
-            upgradePriority,
-            handleResolvedDuplicate
-        } = await import('@/lib/duplicate-detection');
+            .is('parent_report_id', null); // Only check against Canonical reports
 
         const duplicateReport = {
-            id: reportId,
+            id: 'temp_check',
             category: data.category,
             description: data.description,
             latitude: data.latitude,
@@ -96,129 +127,195 @@ export async function POST(request: NextRequest) {
 
         const duplicates = findPotentialDuplicates(
             duplicateReport,
-            existingReports || []
+            candidates || []
         );
 
-        let finalReport: any;
-        let isDuplicate = false;
-        let parentReportId: string | null = null;
-        let duplicateMessage = '';
+        // ---------------------------------------------------------
+        // 3. DETERMINE ACTION (The 7 Cases)
+        // ---------------------------------------------------------
 
-        // **SCENARIO HANDLING**
+        let action: 'create' | 'merge_active' | 'merge_resolved_reopen' | 'merge_resolved_historical' = 'create';
+        let parentReport: any = null;
+        let finalStatus = 'pending';
+        let finalPriority = 'low';
+        let message = 'Report submitted successfully.';
+
+        // If matches found
         if (duplicates.length > 0) {
-            const parentReport = duplicates[0]; // Best match
+            parentReport = duplicates[0]; // Best match
 
-            // **SCENARIO 7: Resolved report handling**
             if (parentReport.status === 'resolved') {
-                const action = handleResolvedDuplicate(parentReport, duplicateReport);
+                // Check Reopen Logic (Case 5 vs Case 6)
+                const shouldReopen = shouldReopenResolved(parentReport.updated_at || parentReport.resolved_at || parentReport.created_at);
 
-                if (action === 'reopen') {
-                    // Reopen the resolved report
-                    const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
-                    const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
-
-                    await supabase
-                        .from('reports')
-                        .update({
-                            status: 'pending', // Reopen
-                            priority: upgradedPriority,
-                            duplicate_count: newDuplicateCount,
-                            last_reported_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', parentReport.id);
-
-                    // Link new report as child
-                    isDuplicate = true;
-                    parentReportId = parentReport.id;
-                    duplicateMessage = `Issue reopened (Report #${parentReport.id.slice(-6)})`;
-                } else if (action === 'merge') {
-                    // Merge as duplicate but don't reopen
-                    const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
-                    const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
-
-                    await supabase
-                        .from('reports')
-                        .update({
-                            duplicate_count: newDuplicateCount,
-                            priority: upgradedPriority,
-                            last_reported_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', parentReport.id);
-
-                    isDuplicate = true;
-                    parentReportId = parentReport.id;
-                    duplicateMessage = `Merged with existing report #${parentReport.id.slice(-6)}`;
+                if (shouldReopen) {
+                    action = 'merge_resolved_reopen'; // Case 5
                 } else {
-                    // Create as new issue (too different or too old)
-                    isDuplicate = false;
+                    action = 'merge_resolved_historical'; // Case 6
                 }
-            }
-            // **SCENARIOS 1-6: Non-resolved duplicates**
-            else {
-                const newDuplicateCount = (parentReport.duplicate_count || 0) + 1;
-                const upgradedPriority = upgradePriority(parentReport.priority, newDuplicateCount);
-
-                // Update parent report: increase count, upgrade priority
-                await supabase
-                    .from('reports')
-                    .update({
-                        duplicate_count: newDuplicateCount,
-                        priority: upgradedPriority,
-                        last_reported_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', parentReport.id);
-
-                isDuplicate = true;
-                parentReportId = parentReport.id;
-                duplicateMessage = `Your report was added to existing issue #${parentReport.id.slice(-6)}. Priority upgraded to ${upgradedPriority}.`;
+            } else {
+                action = 'merge_active'; // Case 2, 3, 4
             }
         }
 
-        // Build final report object
-        finalReport = {
-            id: reportId,
-            user_id: data.user_id,
-            user_name: data.user_name,
-            user_phone: data.user_phone || null,
-            category: data.category,
+        // CASE 7: No matches found -> Action remains 'create'
+
+        // ---------------------------------------------------------
+        // 4. EXECUTE ACTION
+        // ---------------------------------------------------------
+
+        const reportId = `RPT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        const newReportCount = parentReport ? (parentReport.report_count || 1) + 1 : 1;
+        // Calculate priority based on NEW count
+        const newPriority = priorityFromCount(newReportCount);
+
+        console.log('[DUPLICATE DETECTION] Action:', action, '| Parent ID:', parentReport?.id, '| New Count:', newReportCount, '| New Priority:', newPriority);
+
+        // HANDLE CREATION (Case 1 & 7)
+        if (action === 'create') {
+            const finalReport = {
+                id: reportId,
+                user_id: data.user_id,
+                user_name: data.user_name,
+                user_phone: data.user_phone || null,
+                category: data.category,
+                description: data.description,
+                address: data.location,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                image_url: data.image_url || null,
+                status: 'pending',
+                priority: 'low',
+                report_count: 1,
+                parent_report_id: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                last_reported_at: new Date().toISOString(),
+            };
+
+            const { data: created, error } = await supabase.from('reports').insert([finalReport]).select().single();
+            if (error) throw error;
+
+            return NextResponse.json({
+                ...created,
+                created: true,
+                merged: false,
+                message: "Report submitted successfully."
+            }, { status: 201 });
+        }
+
+        // HANDLE MERGING (Cases 2-6)
+        // Universal step: Insert Evidence
+        console.log('[EVIDENCE INSERT] Parent ID:', parentReport.id, '| User:', data.user_id);
+        const { error: evidenceError } = await supabase.from('report_evidence').insert([{
+            canonical_report_id: parentReport.id,
+            submitted_by_user_id: data.user_id,
+            image_url: data.image_url,
             description: data.description,
-            address: data.location,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            image_url: data.image_url || null,
-            status: 'pending',
-            priority: 'low', // Child reports have low priority
-            assigned_technician_id: null,
-            parent_report_id: parentReportId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            last_reported_at: new Date().toISOString(),
-        };
+            created_at: new Date().toISOString()
+        }]);
 
-        const { data: dbData, error } = await supabase
-            .from('reports')
-            .insert([finalReport])
-            .select()
-            .single();
-
-        if (error) {
-            console.error('[Reports API] Create error:', error);
-            return NextResponse.json(
-                { error: `Failed to create report: ${error.message}` },
-                { status: 500 }
-            );
+        if (evidenceError) {
+            console.error('[EVIDENCE INSERT ERROR]', evidenceError);
+            // Continue execution even if evidence insert fails
         }
 
-        console.log(`[Reports API] Created report ID: ${dbData.id}${isDuplicate ? ' (duplicate)' : ''}`);
+        // CASE 2-4: Active Merge
+        if (action === 'merge_active') {
+            console.log('[MERGE ACTIVE] Updating parent:', parentReport.id, '| Old Count:', parentReport.report_count, '| New Count:', newReportCount, '| Old Priority:', parentReport.priority, '| New Priority:', newPriority);
 
-        return NextResponse.json({
-            ...dbData,
-            is_duplicate: isDuplicate,
-            duplicate_message: duplicateMessage || undefined,
-        }, { status: 201 });
+            const { data: updated, error: updateError } = await supabase.from('reports').update({
+                report_count: newReportCount,
+                priority: newPriority, // Escalate priority
+                latest_reported_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).eq('id', parentReport.id).select().single();
+
+            if (updateError) {
+                console.error('[MERGE ACTIVE ERROR] Failed to update parent report:', updateError);
+                return NextResponse.json(
+                    { error: 'Failed to merge duplicate report', details: updateError.message },
+                    { status: 500 }
+                );
+            }
+
+            console.log('[MERGE ACTIVE SUCCESS] Updated report:', updated);
+
+            return NextResponse.json({
+                id: parentReport.id,
+                created: false,
+                merged: true,
+                reopened: false,
+                priority: newPriority,
+                reportCount: newReportCount,
+                message: "This issue is already reported. Your report has been added to increase priority."
+            }, { status: 201 });
+        }
+
+        // CASE 5: Reopen
+        if (action === 'merge_resolved_reopen') {
+            console.log('[REOPEN] Reopening report:', parentReport.id, '| New Count:', newReportCount, '| New Priority:', newPriority);
+
+            const { data: updated, error: updateError } = await supabase.from('reports').update({
+                status: 'pending', // Reopen!
+                report_count: newReportCount,
+                priority: newPriority,
+                reopened_at: new Date().toISOString(),
+                latest_reported_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).eq('id', parentReport.id).select().single();
+
+            if (updateError) {
+                console.error('[REOPEN ERROR] Failed to reopen report:', updateError);
+                return NextResponse.json(
+                    { error: 'Failed to reopen report', details: updateError.message },
+                    { status: 500 }
+                );
+            }
+
+            console.log('[REOPEN SUCCESS] Reopened report:', updated);
+
+            return NextResponse.json({
+                id: parentReport.id,
+                created: false,
+                merged: true,
+                reopened: true,
+                priority: newPriority,
+                reportCount: newReportCount,
+                message: "This issue has reappeared. The case has been reopened."
+            }, { status: 201 });
+        }
+
+        // CASE 6: Historical Merge (No Reopen)
+        if (action === 'merge_resolved_historical') {
+            console.log('[HISTORICAL MERGE] Logging to resolved report:', parentReport.id, '| New Count:', newReportCount);
+
+            const { data: updated, error: updateError } = await supabase.from('reports').update({
+                report_count: newReportCount,
+                // DO NOT change priority or status
+                latest_reported_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).eq('id', parentReport.id).select().single();
+
+            if (updateError) {
+                console.error('[HISTORICAL MERGE ERROR] Failed to update report:', updateError);
+                return NextResponse.json(
+                    { error: 'Failed to log duplicate', details: updateError.message },
+                    { status: 500 }
+                );
+            }
+
+            console.log('[HISTORICAL MERGE SUCCESS] Updated report:', updated);
+
+            return NextResponse.json({
+                id: parentReport.id,
+                created: false,
+                merged: true,
+                reopened: false,
+                message: "This issue is already reported. Your report has been logged."
+            }, { status: 201 });
+        }
+
     } catch (error: any) {
         console.error('[Reports API] Error:', error);
         return NextResponse.json(

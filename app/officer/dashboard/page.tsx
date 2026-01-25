@@ -21,7 +21,7 @@ interface Report {
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     created_at: string;
-    duplicate_count?: number;
+    report_count?: number; // Changed from duplicate_count to match schema
     parent_report_id?: string | null;
 }
 
@@ -222,8 +222,8 @@ export default function OfficerDashboard() {
             {/* Most Reported Issues Widget */}
             {(() => {
                 const mostReported = canonicalReports
-                    .filter(r => (r.duplicate_count || 0) > 0)
-                    .sort((a, b) => (b.duplicate_count || 0) - (a.duplicate_count || 0))
+                    .filter(r => (r.report_count || 1) > 1) // Changed from duplicate_count
+                    .sort((a, b) => (b.report_count || 1) - (a.report_count || 1))
                     .slice(0, 3);
 
                 if (mostReported.length === 0) return null;
@@ -252,7 +252,7 @@ export default function OfficerDashboard() {
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className="px-3 py-1 bg-purple-500/20 text-purple-300 text-sm font-semibold rounded">
-                                            {(report.duplicate_count || 0) + 1} reports
+                                            {report.report_count || 1} reports
                                         </span>
                                         <span className={`px-2 py-1 ${getPriorityConfig(report.priority).bg} ${getPriorityConfig(report.priority).color} text-xs font-medium rounded`}>
                                             {getPriorityConfig(report.priority).label}
@@ -421,10 +421,10 @@ export default function OfficerDashboard() {
                                                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${priority.color} ${priority.bg}`}>
                                                     {priority.label}
                                                 </span>
-                                                {(report.duplicate_count || 0) > 0 && (
+                                                {(report.report_count || 1) > 1 && (
                                                     <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 flex items-center gap-1">
                                                         <span className="material-symbols-outlined text-[12px]">content_copy</span>
-                                                        {report.duplicate_count} linked
+                                                        {report.report_count} reports
                                                     </span>
                                                 )}
                                                 <span className="text-xs text-gray-500">#{report.id.slice(-6)}</span>

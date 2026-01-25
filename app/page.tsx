@@ -8,6 +8,10 @@ import {
   Zap, BarChart3
 } from 'lucide-react';
 import HeroVideo from '@/components/HeroVideo';
+import FeaturesSection from '@/components/landing/FeaturesSection';
+import TimelineSection from '@/components/landing/TimelineSection';
+import DuplicateLogicSection from '@/components/landing/DuplicateLogicSection';
+import CTAFooter from '@/components/landing/CTAFooter';
 
 export default function LandingPage() {
   const [stats, setStats] = useState({
@@ -187,6 +191,7 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
+
           {/* Scroll Indicator - Bottom Right */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -201,87 +206,16 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
-      {/* Subtle Divider */}
-      <div className="relative z-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
-        </div>
-      </div>
 
-      {/* Main Content Section (Below Video) */}
-      <section className="relative z-10 py-24 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Stats Cards - Holographic Design */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {[
-              { label: 'Total Reports', value: stats.totalReports, icon: BarChart3, color: 'text-blue-400', from: 'from-blue-500/20', delay: 0.4 },
-              { label: 'Active Repairs', value: stats.activeRepairs, icon: Wrench, color: 'text-amber-400', from: 'from-amber-500/20', delay: 0.5 },
-              { label: 'Community', value: stats.volunteers, icon: Users, color: 'text-purple-400', from: 'from-purple-500/20', delay: 0.6 },
-              { label: 'Cities', value: stats.citiesCovered, icon: MapPin, color: 'text-emerald-400', from: 'from-emerald-500/20', delay: 0.7 },
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: stat.delay }}
-                className="relative overflow-hidden p-8 rounded-3xl border border-white/5 bg-[#0a0f16]/40 backdrop-blur-xl group hover:-translate-y-2 transition-all duration-500 hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.05)]"
-              >
-                {/* Card Glow Effect */}
-                <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.from} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl -mr-10 -mt-10 rounded-full`}></div>
-                <div className="absolute inset-0 border border-white/0 group-hover:border-white/10 rounded-3xl transition-colors duration-500"></div>
+      {/* New Feature Sections */}
+      <FeaturesSection />
 
-                <div className="relative z-10">
-                  <div className="mb-4 inline-flex p-3 rounded-2xl bg-white/5 border border-white/5 group-hover:scale-110 transition-transform duration-500">
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                  <div className="text-4xl font-bold mb-2 tracking-tight">{stats.loading ? '-' : stat.value}</div>
-                  <div className="text-sm text-gray-400 uppercase tracking-wider font-semibold opacity-60 group-hover:opacity-100 transition-opacity">{stat.label}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TimelineSection />
 
-      {/* CTA Section */}
-      <section className="py-24 px-4 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-primary/5 z-0" />
-        <div className="max-w-3xl mx-auto relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight">Ready to fix your city?</h2>
-            <p className="text-gray-400 text-xl mb-10">Join thousands of citizens making a difference today.</p>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-black font-bold text-lg hover:scale-105 transition-transform"
-            >
-              Get Started Now
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+      <DuplicateLogicSection />
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-white/5 bg-[#05080c]">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-              <Zap className="w-3 h-3 text-white" />
-            </div>
-            <span className="font-bold text-lg text-white/50">FixCity</span>
-          </div>
+      <CTAFooter />
 
-          <div className="text-gray-600 text-sm">
-            &copy; 2026 FixCity Inc. Built for the future.
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

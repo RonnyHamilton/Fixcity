@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
@@ -98,6 +98,21 @@ export default function OfficerLoginPage() {
             setScanning(false);
         }
     };
+
+    // Cleanup: Stop camera when component unmounts or when face is verified
+    useEffect(() => {
+        // Cleanup function to stop camera on unmount
+        return () => {
+            stopCamera();
+        };
+    }, [stopCamera]);
+
+    // Stop camera when face is verified
+    useEffect(() => {
+        if (faceVerified) {
+            stopCamera();
+        }
+    }, [faceVerified, stopCamera]);
 
     // Handle login
     const handleLogin = async () => {

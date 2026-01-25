@@ -16,7 +16,7 @@ export interface ReportForComparison {
     longitude: number;
     priority: 'low' | 'medium' | 'high' | 'urgent';
     parent_report_id?: string | null;
-    duplicate_count?: number;
+    report_count?: number; // Changed from duplicate_count to match schema
     assigned_technician_id?: string | null;
     status?: string;
     updated_at?: string;
@@ -123,8 +123,8 @@ export function findPotentialDuplicates(
             return true;
         })
         .sort((a, b) => {
-            // Sort by duplicate count (prefer merging into reports with more duplicates)
-            return (b.duplicate_count || 0) - (a.duplicate_count || 0);
+            // Sort by report count (prefer merging into reports with more reports)
+            return (b.report_count || 1) - (a.report_count || 1);
         });
 }
 
@@ -139,27 +139,18 @@ const PRIORITY_ORDER: Array<'low' | 'medium' | 'high' | 'urgent'> = [
 ];
 
 /**
- * Calculate total report count (parent + duplicates)
- */
-export function calculateReportCount(duplicateCount: number): number {
-    return duplicateCount + 1; // +1 for the parent report itself
-}
-
-/**
- * Upgrade priority based on TOTAL report count (not duplicate count)
- * New Thresholds:
+ * Upgrade priority based on TOTAL report count
+ * Thresholds:
  * - 1 report → Low
  * - 2-3 reports → Medium
  * - 4-6 reports → High
  * - 7+ reports → Urgent/Critical
+ * 
+ * @param reportCount - The TOTAL number of reports (including parent)
  */
-export function upgradePriority(
-    currentPriority: 'low' | 'medium' | 'high' | 'urgent',
-    duplicateCount: number
+export function priorityFromCount(
+    reportCount: number
 ): 'low' | 'medium' | 'high' | 'urgent' {
-    const reportCount = calculateReportCount(duplicateCount);
-
-    // Direct priority assignment based on report count
     if (reportCount >= 7) {
         return 'urgent';
     } else if (reportCount >= 4) {
@@ -169,6 +160,16 @@ export function upgradePriority(
     } else {
         return 'low';
     }
+}
+
+/**
+ * @deprecated Use priorityFromCount instead - this wrapper maintained for compatibility
+ */
+export function upgradePriority(
+    currentPriority: 'low' | 'medium' | 'high' | 'urgent',
+    reportCount: number
+): 'low' | 'medium' | 'high' | 'urgent' {
+    return priorityFromCount(reportCount);
 }
 
 /**

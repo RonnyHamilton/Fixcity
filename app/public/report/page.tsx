@@ -29,6 +29,8 @@ export default function ReportIssuePage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [mergedInfo, setMergedInfo] = useState<any>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isSpam, setIsSpam] = useState(false); // Track if user already submitted this issue
 
     // Form data
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -39,11 +41,8 @@ export default function ReportIssuePage() {
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [detectingLocation, setDetectingLocation] = useState(false);
 
-    // Handle file selection
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
+    // Handle file selection (used by both click and drag-drop)
+    const processFile = (file: File) => {
         // Validate file type
         if (!file.type.startsWith('image/')) {
             setError('Please select an image file');
@@ -65,6 +64,42 @@ export default function ReportIssuePage() {
             setImagePreview(e.target?.result as string);
         };
         reader.readAsDataURL(file);
+    };
+
+    // Handle file input change
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        processFile(file);
+    };
+
+    // Drag and drop handlers
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            processFile(file);
+        }
     };
 
     // Detect location
@@ -103,6 +138,9 @@ export default function ReportIssuePage() {
         );
     }, []);
 
+    // State for success message
+    const [successMessage, setSuccessMessage] = useState('');
+
     // Submit report
     const handleSubmit = async () => {
         if (!category) {
@@ -131,14 +169,14 @@ export default function ReportIssuePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: user?.id || 'anonymous',
-                    user_name: user?.name || 'Anonymous', // Adding user_name in snake_case too just in case, though unused in backend logic currently
+                    user_name: user?.name || 'Anonymous',
                     user_phone: user?.phone,
                     category,
                     description,
                     image_url: imageUrl,
                     latitude: location?.lat,
                     longitude: location?.lng,
-                    location: address, // Backend expects 'location' as the address string
+                    location: address,
                 }),
             });
 
@@ -149,17 +187,38 @@ export default function ReportIssuePage() {
                 return;
             }
 
-            // Check if report was merged
-            if (data.merged && data.parent_report) {
-                setMergedInfo(data.parent_report);
+            // Check if this is a spam/duplicate submission by the same user
+            if (data.is_spam) {
+                setIsSpam(true);
+                setSuccessMessage(data.message || 'You have already reported this issue recently.');
+                setSuccess(true);
+
+                // Redirect faster for spam (2 seconds)
+                setTimeout(() => {
+                    router.push('/public/my-reports');
+                }, 2000);
+                return;
+            }
+
+            // Capture success message from backend
+            setSuccessMessage(data.message || 'Report submitted successfully.');
+
+            // Check if report was merged (data.id is the canonical ID)
+            if (data.merged) {
+                setMergedInfo({
+                    id: data.id,
+                    reportCount: data.reportCount,
+                    priority: data.priority,
+                    reopened: data.reopened
+                });
             }
 
             setSuccess(true);
 
-            // Redirect after 2 seconds
+            // Redirect after 3 seconds
             setTimeout(() => {
                 router.push('/public/dashboard');
-            }, 3000);
+            }, 3500);
         } catch {
             setError('Network error. Please try again.');
         } finally {
@@ -168,25 +227,82 @@ export default function ReportIssuePage() {
     };
 
     if (success) {
+        // Special UI for spam/duplicate submission by same user
+        if (isSpam) {
+            return (
+                <div className="min-h-[80vh] flex items-center justify-center px-4 w-full">
+                    <div className="rounded-3xl glass-panel p-10 max-w-lg w-full mx-auto shadow-[0_0_50px_-10px_rgba(251,146,60,0.3)] animate-in fade-in zoom-in duration-300 border-2 border-orange-500/30">
+                        <div className="flex flex-col items-center gap-6 text-center">
+                            <div className="h-24 w-24 rounded-full bg-orange-500/20 flex items-center justify-center border-2 border-orange-500/50 animate-pulse">
+                                <AlertTriangle className="w-12 h-12 text-orange-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-3xl font-black text-white mb-3">
+                                    Already Reported!
+                                </h2>
+                                <p className="text-slate-300 text-lg leading-relaxed mb-4">
+                                    {successMessage}
+                                </p>
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-4">
+                                    <p className="text-sm text-orange-300 font-medium">
+                                        💡 <strong>Note:</strong> Submitting the same issue multiple times won't create duplicate reports. We've already logged your concern!
+                                    </p>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Check your previous reports in <strong className="text-orange-400">My Reports</strong>
+                                </p>
+                            </div>
+                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden mt-2">
+                                <div className="h-full bg-orange-400 animate-[progress_2s_ease-in-out_forwards] w-full origin-left" />
+                            </div>
+                            <p className="text-sm text-slate-500 font-medium">Redirecting to your reports...</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Normal success/merged UI
         return (
             <div className="min-h-[80vh] flex items-center justify-center px-4 w-full">
                 <div className="rounded-3xl glass-panel p-10 max-w-lg w-full mx-auto shadow-[0_0_50px_-10px_rgba(34,197,94,0.3)] animate-in fade-in zoom-in duration-300">
                     <div className="flex flex-col items-center gap-6 text-center">
                         <div className="h-24 w-24 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30">
-                            <Check className="w-12 h-12 text-green-500" />
+                            {mergedInfo ? (
+                                <AlertTriangle className="w-12 h-12 text-yellow-400" />
+                            ) : (
+                                <Check className="w-12 h-12 text-green-500" />
+                            )}
                         </div>
                         <div>
                             <h2 className="text-3xl font-black text-white mb-3">
-                                {mergedInfo ? 'Report Merged!' : 'Submission Successful!'}
+                                {mergedInfo ? 'Issue Update Logged' : 'Submission Successful!'}
                             </h2>
                             <p className="text-slate-400 text-lg leading-relaxed">
-                                {mergedInfo
-                                    ? `Great news! This issue was already reported. Your report has been merged with #${mergedInfo.id?.slice(-6)}.`
-                                    : 'Your report has been received. Our team will review it shortly.'}
+                                {successMessage}
                             </p>
+                            {mergedInfo && (
+                                <>
+                                    <div className="mt-4 bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+                                        <p className="text-sm text-purple-300 font-medium mb-2">
+                                            📊 This issue has been reported <strong className="text-purple-400">{mergedInfo.reportCount || 'multiple'}</strong> times
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            Priority: <span className={`font-bold ${mergedInfo.priority === 'urgent' ? 'text-red-400' :
+                                                    mergedInfo.priority === 'high' ? 'text-orange-400' :
+                                                        mergedInfo.priority === 'medium' ? 'text-yellow-400' : 'text-gray-400'
+                                                }`}>{mergedInfo.priority?.toUpperCase()}</span>
+                                            {mergedInfo.reopened && ' • 🔄 Reopened'}
+                                        </p>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-3 font-mono">
+                                        Reference ID: #{mergedInfo.id?.slice(-6)}
+                                    </p>
+                                </>
+                            )}
                         </div>
                         <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden mt-2">
-                            <div className="h-full bg-green-500 animate-[progress_3s_ease-in-out_forwards] w-full origin-left" />
+                            <div className={`h-full ${mergedInfo ? 'bg-yellow-400' : 'bg-green-500'} animate-[progress_3s_ease-in-out_forwards] w-full origin-left`} />
                         </div>
                         <p className="text-sm text-slate-500 font-medium">Redirecting to dashboard...</p>
                     </div>
@@ -246,13 +362,26 @@ export default function ReportIssuePage() {
                         ) : (
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="flex-1 min-h-[250px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-black/20 p-8 transition-all hover:bg-white/5 hover:border-primary/50 cursor-pointer group/upload relative overflow-hidden"
+                                onDragEnter={handleDragEnter}
+                                onDragLeave={handleDragLeave}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                className={`flex-1 min-h-[250px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all cursor-pointer group/upload relative overflow-hidden ${isDragging
+                                    ? 'border-primary bg-primary/10 scale-[1.02]'
+                                    : 'border-white/10 bg-black/20 hover:bg-white/5 hover:border-primary/50'
+                                    }`}
                             >
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/upload:opacity-100 transition-opacity" />
-                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 group-hover/upload:bg-primary/20 group-hover/upload:scale-110 text-slate-400 group-hover/upload:text-primary transition-all duration-300 border border-white/5 group-hover/upload:border-primary/30">
+                                <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover/upload:opacity-100'
+                                    }`} />
+                                <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${isDragging
+                                    ? 'bg-primary/30 scale-110 text-primary border border-primary/50'
+                                    : 'bg-white/5 group-hover/upload:bg-primary/20 group-hover/upload:scale-110 text-slate-400 group-hover/upload:text-primary border border-white/5 group-hover/upload:border-primary/30'
+                                    }`}>
                                     <Upload className="w-8 h-8" />
                                 </div>
-                                <p className="text-base font-bold text-center mb-1 text-white group-hover/upload:text-white transition-colors relative z-10">Click to upload or drag and drop</p>
+                                <p className="text-base font-bold text-center mb-1 text-white group-hover/upload:text-white transition-colors relative z-10">
+                                    {isDragging ? 'Drop image here' : 'Click to upload or drag and drop'}
+                                </p>
                                 <p className="text-xs text-slate-500 text-center relative z-10 font-medium">JPG, PNG, WebP up to 10MB</p>
                             </div>
                         )}
