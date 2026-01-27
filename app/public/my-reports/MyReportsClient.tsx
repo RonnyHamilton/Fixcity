@@ -22,6 +22,7 @@ interface Report {
     resolution_notes?: string;
     created_at: string;
     updated_at: string;
+    parent_report_id?: string | null;
 }
 
 function MyReportsContent() {
@@ -62,9 +63,9 @@ function MyReportsContent() {
             const response = await fetch(`/api/reports?userId=${user?.id}`);
             if (response.ok) {
                 const data = await response.json();
-                // Filter out duplicates - only show canonical reports (parent_report_id is null)
-                const canonicalReports = (data.reports || []).filter((r: any) => !r.parent_report_id);
-                setReports(canonicalReports);
+                // Show ALL reports including duplicates
+                // Users should see their submissions even if merged into a parent report
+                setReports(data.reports || []);
             }
         } catch (error) {
             console.error('Failed to fetch reports:', error);
@@ -299,6 +300,11 @@ function MyReportsContent() {
                                             }`}>
                                             {report.priority}
                                         </span>
+                                        {report.parent_report_id && (
+                                            <span className="text-xs font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+                                                Merged Report
+                                            </span>
+                                        )}
                                     </div>
 
                                     <p className="text-white font-medium mb-1 line-clamp-1">{report.description}</p>
@@ -335,13 +341,19 @@ function MyReportsContent() {
                                 {/* Actions */}
                                 <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-2">
                                     <span className="text-xs text-gray-500">#{report.id.slice(-6)}</span>
-                                    <button
-                                        onClick={() => setSelectedReport(report)}
+                                    <Link
+                                        href={report.parent_report_id ? `/officer/reports/${report.parent_report_id}` : '#'}
+                                        onClick={(e) => {
+                                            if (!report.parent_report_id) {
+                                                e.preventDefault();
+                                                setSelectedReport(report);
+                                            }
+                                        }}
                                         className="flex items-center gap-1 text-primary text-sm font-medium hover:underline group-hover:gap-2 transition-all"
                                     >
                                         View Details
                                         <ChevronRight className="w-4 h-4" />
-                                    </button>
+                                    </Link>
                                 </div>
                             </div>
                         );

@@ -37,6 +37,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     const { id } = use(params); // Unwrap the params Promise
     const [report, setReport] = useState<Report | null>(null);
     const [childReports, setChildReports] = useState<Report[]>([]); // Duplicate reports
+    const [reportEvidence, setReportEvidence] = useState<any[]>([]); // Evidence from all reporters
     const [consolidatedSummary, setConsolidatedSummary] = useState<string>(''); // AI summary
     const [consolidating, setConsolidating] = useState(false);
     const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -57,9 +58,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             // In a real app, we'd have a specific GET endpoint for a single report
             // For now, we'll fetch all and filter, or assume the list endpoint handles basic filtering
             // Let's rely on the dashboard approach but filtered by ID if the API supports it, or just find it
-            const [reportsRes, techRes] = await Promise.all([
+            const [reportsRes, techRes, evidenceRes] = await Promise.all([
                 fetch(`/api/reports`), // Ideal: fetch(`/api/reports/${id}`)
                 fetch('/api/technicians'),
+                fetch(`/api/reports/${id}/evidence`), // Fetch all evidence/submissions
             ]);
 
             if (reportsRes.ok) {
@@ -77,6 +79,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             if (techRes.ok) {
                 const data = await techRes.json();
                 setTechnicians(data.technicians || []);
+            }
+
+            if (evidenceRes.ok) {
+                const data = await evidenceRes.json();
+                setReportEvidence(data.evidence || []);
             }
         } catch (error) {
             console.error('Failed to fetch data:', error);
@@ -323,6 +330,88 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                             </div>
                         </div>
+
+                        {/* All Reporters Section - Show everyone who reported this issue */}
+                        {(reportEvidence.length > 0 || report) && (
+                            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                    <User className="w-5 h-5 text-primary" />
+                                    All Reporters ({1 + reportEvidence.length} {reportEvidence.length === 0 ? 'Citizen' : 'Citizens'})
+                                </h3>
+
+                                <div className="space-y-4">
+                                    {/* Original reporter (parent report) */}
+                                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold flex-shrink-0">
+                                                {report.user_name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className="text-white font-bold">{report.user_name}</p>
+                                                    <span className="text-xs font-bold uppercase tracking-wide text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
+                                                        Original Reporter
+                                                    </span>
+                                                </div>
+                                                <p className="text-gray-400 text-sm mb-2">
+                                                    {new Date(report.created_at).toLocaleDateString('en-IN', {
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </p>
+                                                <p className="text-gray-300 text-sm">{report.description}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional reporters from evidence */}
+                                    {reportEvidence.map((evidence, index) => (
+                                        <div key={evidence.id || index} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold flex-shrink-0">
+                                                    {index + 2}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="text-white font-bold">Reporter #{index + 2}</p>
+                                                        <span className="text-xs font-bold uppercase tracking-wide text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">
+                                                            Additional Report
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-gray-400 text-sm mb-2">
+                                                        {new Date(evidence.created_at).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </p>
+                                                    <p className="text-gray-300 text-sm mb-2">{evidence.description}</p>
+                                                    {evidence.image_url && (
+                                                        <img
+                                                            src={evidence.image_url}
+                                                            alt="Evidence"
+                                                            className="w-full max-w-xs rounded-lg border border-purple-500/30 mt-2"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                    <p className="text-xs text-green-400 flex items-center gap-2">
+                                        <CheckCircle className="w-4 h-4" />
+                                        All submissions have been merged into this single report
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Consolidated Descriptions - Show if duplicates exist */}
                         {childReports.length > 0 && (

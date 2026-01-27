@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:dry-run": "tsx scripts/consolidate-duplicates.ts --dry-run",
+    "migrate:execute": "tsx scripts/consolidate-duplicates.ts --execute"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -34,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

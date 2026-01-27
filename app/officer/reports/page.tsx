@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
     FileText, Clock, CheckCircle, AlertTriangle, Filter,
     MapPin, ChevronRight, Search, ChevronDown, MoreVertical, UserPlus, Loader2, X
@@ -31,6 +32,7 @@ interface Technician {
 }
 
 export default function OfficerReportsPage() {
+    const router = useRouter();
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -298,7 +300,7 @@ export default function OfficerReportsPage() {
                                 return (
                                     <tr
                                         key={report.id}
-                                        onClick={() => setSelectedReport(report)}
+                                        onClick={() => router.push(`/officer/reports/${report.id}`)}
                                         className="hover:bg-white/[0.02] transition-all cursor-pointer"
                                     >
                                         <td className="px-6 py-4">
@@ -362,8 +364,8 @@ export default function OfficerReportsPage() {
                         return (
                             <div
                                 key={report.id}
-                                onClick={() => setSelectedReport(report)}
-                                className="p-4 flex gap-4 active:bg-white/5 transition-colors"
+                                onClick={() => router.push(`/officer/reports/${report.id}`)}
+                                className="p-4 flex gap-4 active:bg-white/5 transition-colors cursor-pointer"
                             >
                                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
                                     {report.image_url ? (
