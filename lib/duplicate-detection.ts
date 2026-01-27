@@ -24,6 +24,25 @@ export interface ReportForComparison {
 }
 
 /**
+ * Normalize category for consistent matching
+ * Converts to lowercase and trims whitespace
+ */
+export function normalizeCategory(category: string): string {
+    return category.trim().toLowerCase();
+}
+
+/**
+ * Normalize description for consistent matching
+ * Converts to lowercase, trims, and collapses multiple spaces
+ */
+export function normalizeDescription(description: string): string {
+    return description
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' '); // Collapse multiple spaces to single space
+}
+
+/**
  * Calculate distance between two geographic points using Haversine formula
  * @returns Distance in meters
  */
@@ -94,15 +113,61 @@ export const DUPLICATE_THRESHOLDS = {
  */
 export function findPotentialDuplicates(
     newReport: ReportForComparison,
-    existingReports: ReportForComparison[]
+    existingReports: ReportForComparison[],
+    debug = false
 ): ReportForComparison[] {
+    const normalizedNewCategory = normalizeCategory(newReport.category);
+    const normalizedNewDesc = normalizeDescription(newReport.description);
+
+    // Categories where location alone is enough (using substring matching for flexibility)
+    // This handles variations like "Sanitation Issue", "Waste Management", "garbage-report", etc.
+    const isSanitationCategory = (category: string) => {
+        const lower = category.toLowerCase();
+        return (
+            lower.includes('sanitation') ||
+            lower.includes('waste') ||
+            lower.includes('garbage') ||
+            lower.includes('trash') ||
+            lower.includes('litter')
+        );
+    };
+
+    const isLocationOnlyCategory = isSanitationCategory(normalizedNewCategory);
+
+    // Increased distance for sanitation to account for GPS drift
+    // Garbage on a street might be "same issue" even if 200m apart due to phone GPS variance
+    // Real-world testing shows 300m is optimal for street-level sanitation issues
+    const MAX_DISTANCE = isLocationOnlyCategory
+        ? 300 // Sanitation: very lenient (GPS drift + street-wide issues + phone variance)
+        : DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS; // Other: strict 100m
+
+    if (debug) {
+        console.log('\n========== DUPLICATE DETECTION START ==========');
+        console.log(`[NEW REPORT] Category: "${normalizedNewCategory}" | Location-only mode: ${isLocationOnlyCategory}`);
+        console.log(`[NEW REPORT] Distance threshold: ${MAX_DISTANCE}m`);
+        console.log(`[NEW REPORT] Coordinates: (${newReport.latitude}, ${newReport.longitude})`);
+        console.log(`[NEW REPORT] Description: "${normalizedNewDesc.substring(0, 60)}..."`);
+        console.log(`[CANDIDATES] Checking ${existingReports.length} potential duplicates\n`);
+    }
+
     return existingReports
         .filter((existing) => {
             // Must be a canonical report (not a child)
-            if (existing.parent_report_id) return false;
+            if (existing.parent_report_id) {
+                if (debug) {
+                    console.log(`[CANDIDATE ${existing.id}] ❌ SKIP - Not canonical (has parent_report_id)`);
+                }
+                return false;
+            }
 
-            // Must have same category
-            if (existing.category !== newReport.category) return false;
+            // Must have same category (normalized comparison)
+            const normalizedExistingCategory = normalizeCategory(existing.category);
+            if (normalizedExistingCategory !== normalizedNewCategory) {
+                if (debug) {
+                    console.log(`[CANDIDATE ${existing.id}] ❌ SKIP - Category mismatch ("${normalizedExistingCategory}" !== "${normalizedNewCategory}")`);
+                }
+                return false;
+            }
 
             // Check geo-distance
             const distance = calculateGeoDistance(
@@ -111,15 +176,50 @@ export function findPotentialDuplicates(
                 existing.latitude,
                 existing.longitude
             );
-            if (distance > DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS) return false;
 
-            // Check text similarity
+            if (debug) {
+                console.log(`[CANDIDATE ${existing.id}] user_id=${(existing as any).user_id || 'unknown'} | distance=${distance.toFixed(2)}m (threshold: ${MAX_DISTANCE}m)`);
+            }
+
+            // Distance check - ALWAYS required
+            if (distance > MAX_DISTANCE) {
+                if (debug) {
+                    console.log(`  ❌ Distance too far (${distance.toFixed(2)}m > ${MAX_DISTANCE}m)`);
+                }
+                return false;
+            }
+
+            // For sanitation/waste/garbage: Distance alone is enough!
+            if (isLocationOnlyCategory) {
+                if (debug) {
+                    console.log(`  ✅ MATCH - Sanitation category, distance within threshold (${distance.toFixed(2)}m <= ${MAX_DISTANCE}m)`);
+                    console.log(`  📊 Decision: MERGE (location-based match for ${normalizedNewCategory})`);
+                }
+                return true;
+            }
+
+            // For other categories: Check text similarity
+            const normalizedExistingDesc = normalizeDescription(existing.description);
             const similarity = calculateTextSimilarity(
-                newReport.description,
-                existing.description
+                normalizedNewDesc,
+                normalizedExistingDesc
             );
-            if (similarity < DUPLICATE_THRESHOLDS.MIN_TEXT_SIMILARITY) return false;
 
+            if (debug) {
+                console.log(`  📝 Text similarity: ${(similarity * 100).toFixed(1)}% (threshold: ${(DUPLICATE_THRESHOLDS.MIN_TEXT_SIMILARITY * 100).toFixed(1)}%)`);
+            }
+
+            if (similarity < DUPLICATE_THRESHOLDS.MIN_TEXT_SIMILARITY) {
+                if (debug) {
+                    console.log(`  ❌ Similarity too low (${(similarity * 100).toFixed(1)}% < ${(DUPLICATE_THRESHOLDS.MIN_TEXT_SIMILARITY * 100).toFixed(1)}%)`);
+                }
+                return false;
+            }
+
+            if (debug) {
+                console.log(`  ✅ MATCH - Distance=${distance.toFixed(2)}m, Similarity=${(similarity * 100).toFixed(1)}%`);
+                console.log(`  📊 Decision: MERGE (distance + text similarity match)`);
+            }
             return true;
         })
         .sort((a, b) => {

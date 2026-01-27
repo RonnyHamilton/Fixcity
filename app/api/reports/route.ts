@@ -69,66 +69,143 @@ export async function POST(request: NextRequest) {
         const data = result.data; // Type-safe data
 
         // ---------------------------------------------------------
-        // 1. SAME USER CHECK (Spam Prevention)
+        // VALIDATE AND NORMALIZE COORDINATES
         // ---------------------------------------------------------
-        // Check if THIS user recently reported a similar issue (active or resolved)
-        // We check reports created by this user in the last 24 hours that match category & location
-        const { data: userRecentReports } = await supabase
-            .from('reports')
-            .select('id, parent_report_id, created_at, latitude, longitude')
-            .eq('user_id', data.user_id)
-            .eq('category', data.category)
-            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24h
+        // Ensure latitude and longitude are valid numbers
+        const latitude = Number(data.latitude);
+        const longitude = Number(data.longitude);
 
-        // Import utilities
+        if (isNaN(latitude) || isNaN(longitude)) {
+            return NextResponse.json(
+                { error: 'Invalid coordinates. Latitude and longitude must be valid numbers.' },
+                { status: 400 }
+            );
+        }
+
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            return NextResponse.json(
+                { error: 'Coordinates out of range. Latitude must be [-90, 90], Longitude must be [-180, 180].' },
+                { status: 400 }
+            );
+        }
+
+        // Import utilities early
         const {
             findPotentialDuplicates,
             priorityFromCount,
             calculateGeoDistance,
             shouldReopenResolved,
+            normalizeCategory,
+            normalizeDescription,
             DUPLICATE_THRESHOLDS
         } = await import('@/lib/duplicate-detection');
 
-        // Check if any recent user report is a duplicate of this new one
+        // Normalize inputs for consistent comparison
+        const normalizedCategory = normalizeCategory(data.category);
+        const normalizedDescription = normalizeDescription(data.description);
+
+        console.log('[NEW REPORT SUBMISSION]');
+        console.log('  Report ID:', `temp_${Date.now()}`);
+        console.log('  User ID:', data.user_id);
+        console.log('  Category (original):', data.category);
+        console.log('  Category (normalized):', normalizedCategory);
+        console.log('  Description (original):', data.description.substring(0, 50) + '...');
+        console.log('  Description (normalized):', normalizedDescription.substring(0, 50) + '...');
+        console.log('  Coordinates:', `(${latitude}, ${longitude})`);
+
+        // ---------------------------------------------------------
+        // 1. SAME USER CHECK (Spam Prevention) - UNCHANGED
+        // ---------------------------------------------------------
+        console.log('[SPAM CHECK] Checking if same user submitted recently...');
+        const { data: userRecentReports } = await supabase
+            .from('reports')
+            .select('id, parent_report_id, created_at, latitude, longitude')
+            .eq('user_id', data.user_id)
+            .eq('category', data.category)
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
         const isSpam = userRecentReports?.some(existing => {
-            const dist = calculateGeoDistance(data.latitude, data.longitude, existing.latitude, existing.longitude);
+            const dist = calculateGeoDistance(latitude, longitude, Number(existing.latitude), Number(existing.longitude));
             return dist < DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS;
         });
 
         if (isSpam) {
+            console.log('[SPAM CHECK] ❌ Same user spam detected');
             return NextResponse.json({
                 message: "You have already reported this issue recently.",
                 is_spam: true,
                 created: false
             }, { status: 200 });
         }
-
+        console.log('[SPAM CHECK] ✅ No spam detected - different user or location');
 
         // ---------------------------------------------------------
-        // 2. FETCH CANDIDATES (Global Duplicate Check)
+        // 2. FETCH CANDIDATES (Global Cross-User Duplicate Check)
         // ---------------------------------------------------------
-        // Fetch ALL potential candidates (Active AND Resolved) in the same category
-        // We filter for distance in memory for precision, but could use PostGIS if available.
-        // For now, we fetch all in category (assuming mostly manageable volume per category, or add bounding box later)
-        const { data: candidates } = await supabase
-            .from('reports')
-            .select('*')
-            .eq('category', data.category)
-            .is('parent_report_id', null); // Only check against Canonical reports
+        console.log('[CROSS-USER DUPLICATE CHECK] Fetching canonical reports...');
+
+        // ✅ SANITATION BUCKET: Query all sanitation-related categories at once
+        // This prevents missing matches when users submit "Sanitation", "Waste Management", "garbage", etc.
+        const SANITATION_BUCKET = ['sanitation', 'waste', 'garbage', 'trash', 'litter'];
+        const isSanitationFamily = SANITATION_BUCKET.some(k => normalizedCategory.includes(k));
+
+        console.log('  Category (normalized):', normalizedCategory);
+        console.log('  Is sanitation family?', isSanitationFamily);
+        console.log('  🔑 NOTE: No user_id filter - checking ALL users globally');
+
+        let candidates;
+        let candidateError;
+
+        if (isSanitationFamily) {
+            // For sanitation: fetch ALL sanitation-related categories
+            console.log('  Query type: SANITATION BUCKET (fetching all sanitation categories)');
+            const result = await supabase
+                .from('reports')
+                .select('*')
+                .in('category', SANITATION_BUCKET) // ✅ Fetch all sanitation variants
+                .is('parent_report_id', null);
+            candidates = result.data;
+            candidateError = result.error;
+        } else {
+            // For other categories: exact category match
+            console.log('  Query type: EXACT MATCH (single category)');
+            const result = await supabase
+                .from('reports')
+                .select('*')
+                .eq('category', normalizedCategory) // ✅ Use normalized category for query
+                .is('parent_report_id', null);
+            candidates = result.data;
+            candidateError = result.error;
+        }
+
+        if (candidateError) {
+            console.error('[CROSS-USER DUPLICATE CHECK] ❌ Query error:', candidateError);
+        }
+
+        console.log(`[CROSS-USER DUPLICATE CHECK] ✅ Query complete:`);
+        console.log('  category="' + normalizedCategory + '"');
+        console.log('  candidates found=' + (candidates?.length || 0));
+        if (candidates && candidates.length > 0) {
+            console.log('  candidate IDs:', candidates.map(c => c.id).join(', '));
+        }
 
         const duplicateReport = {
             id: 'temp_check',
-            category: data.category,
-            description: data.description,
-            latitude: data.latitude,
-            longitude: data.longitude,
+            category: normalizedCategory, // Use normalized for comparison
+            description: normalizedDescription, // Use normalized for comparison
+            latitude,
+            longitude,
             priority: 'low' as const,
         };
 
+        console.log('[CROSS-USER DUPLICATE CHECK] Running similarity checks...');
         const duplicates = findPotentialDuplicates(
             duplicateReport,
-            candidates || []
+            candidates || [],
+            true // Enable debug logging
         );
+
+        console.log(`[CROSS-USER DUPLICATE CHECK] ${duplicates.length > 0 ? `✅ MATCH FOUND - ${duplicates.length} duplicate(s)` : '❌ No matches found'}`);
 
         // ---------------------------------------------------------
         // 3. DETERMINE ACTION (The 7 Cases)
@@ -166,23 +243,30 @@ export async function POST(request: NextRequest) {
 
         const reportId = `RPT_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
         const newReportCount = parentReport ? (parentReport.report_count || 1) + 1 : 1;
-        // Calculate priority based on NEW count
         const newPriority = priorityFromCount(newReportCount);
 
-        console.log('[DUPLICATE DETECTION] Action:', action, '| Parent ID:', parentReport?.id, '| New Count:', newReportCount, '| New Priority:', newPriority);
+        console.log('[ACTION DECISION]', action.toUpperCase());
+        if (parentReport) {
+            console.log('  Parent Report ID:', parentReport.id);
+            console.log('  Current Count:', parentReport.report_count || 1);
+            console.log('  New Count:', newReportCount);
+            console.log('  Current Priority:', parentReport.priority);
+            console.log('  New Priority:', newPriority);
+        }
 
         // HANDLE CREATION (Case 1 & 7)
         if (action === 'create') {
+            console.log('[CREATE NEW REPORT] No duplicates found - creating new canonical report');
             const finalReport = {
                 id: reportId,
                 user_id: data.user_id,
                 user_name: data.user_name,
                 user_phone: data.user_phone || null,
-                category: data.category,
-                description: data.description,
+                category: normalizedCategory, // ✅ CRITICAL: Store normalized category
+                description: normalizedDescription, // ✅ CRITICAL: Store normalized description
                 address: data.location,
-                latitude: data.latitude,
-                longitude: data.longitude,
+                latitude,
+                longitude,
                 image_url: data.image_url || null,
                 status: 'pending',
                 priority: 'low',
@@ -190,7 +274,7 @@ export async function POST(request: NextRequest) {
                 parent_report_id: null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                last_reported_at: new Date().toISOString(),
+                latest_reported_at: new Date().toISOString(), // ✅ FIXED: Use latest_reported_at (not last_reported_at)
             };
 
             const { data: created, error } = await supabase.from('reports').insert([finalReport]).select().single();
