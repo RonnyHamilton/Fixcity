@@ -7,9 +7,14 @@ export function proxy(request: NextRequest) {
     if (request.nextUrl.pathname.startsWith('/api')) {
         const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
 
-        // Stricter limits for write operations (POST/PATCH)
+        // Skip rate limiting for localhost during development
+        if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+            return NextResponse.next();
+        }
+
+        // More reasonable limits for write operations (POST/PATCH)
         const isWrite = ['POST', 'PATCH', 'DELETE'].includes(request.method);
-        const limit = isWrite ? 10 : 60; // 10 writes/min, 60 reads/min per IP
+        const limit = isWrite ? 30 : 100; // 30 writes/min, 100 reads/min per IP
 
         const result = rateLimit(ip, { windowMs: 60000, max: limit });
 

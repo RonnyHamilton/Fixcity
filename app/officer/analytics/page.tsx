@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
     BarChart3, TrendingUp, Clock, CheckCircle, AlertTriangle,
-    Calendar, ChevronDown, FileText, Users, MapPin, Activity
+    Calendar, ChevronDown, FileText, Users, MapPin, Activity, PieChart
 } from 'lucide-react';
 
 interface Report {
@@ -103,7 +103,7 @@ export default function OfficerAnalyticsPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
             </div>
         );
     }
@@ -113,88 +113,100 @@ export default function OfficerAnalyticsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Analytics</h1>
-                    <p className="text-gray-400">Overview of civic issue reporting metrics</p>
+                    <h1 className="text-2xl font-bold text-slate-800">Analytics Review</h1>
+                    <p className="text-slate-500">Overview of civic issue reporting and resolution metrics</p>
                 </div>
                 <div className="relative">
                     <select
                         value={timeRange}
                         onChange={(e) => setTimeRange(e.target.value)}
-                        className="appearance-none bg-white/5 border border-white/10 text-white rounded-lg px-4 py-2 pr-10 text-sm cursor-pointer"
+                        className="appearance-none bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 pr-10 text-sm font-medium shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all cursor-pointer"
                     >
-                        <option value="7days" className="bg-[#0f172a] text-white">Last 7 days</option>
-                        <option value="30days" className="bg-[#0f172a] text-white">Last 30 days</option>
-                        <option value="90days" className="bg-[#0f172a] text-white">Last 90 days</option>
+                        <option value="7days">Last 7 days</option>
+                        <option value="30days">Last 30 days</option>
+                        <option value="90days">Last 90 days</option>
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
             </div>
 
-            {/* Overview Stats */}
+            {/* Overview Stats Cards - Gradient Style */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-500/20 to-blue-500/5 backdrop-blur-xl rounded-xl p-5 border border-blue-500/20">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-500/30 flex items-center justify-center text-blue-400">
-                            <FileText className="w-5 h-5" />
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-[20px] p-5 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                <FileText className="w-5 h-5 text-white" />
+                            </div>
                         </div>
+                        <p className="text-3xl font-bold mb-1">{stats.total}</p>
+                        <p className="text-sm text-blue-100 font-medium">Total Reports</p>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.total}</p>
-                    <p className="text-sm text-blue-300/70">Total Reports</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-500/20 to-green-500/5 backdrop-blur-xl rounded-xl p-5 border border-green-500/20">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-green-500/30 flex items-center justify-center text-green-400">
-                            <CheckCircle className="w-5 h-5" />
+                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[20px] p-5 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                <CheckCircle className="w-5 h-5 text-white" />
+                            </div>
                         </div>
+                        <p className="text-3xl font-bold mb-1">{resolutionRate}%</p>
+                        <p className="text-sm text-emerald-100 font-medium">Resolution Rate</p>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{resolutionRate}%</p>
-                    <p className="text-sm text-green-300/70">Resolution Rate</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 backdrop-blur-xl rounded-xl p-5 border border-orange-500/20">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-500/30 flex items-center justify-center text-orange-400">
-                            <Clock className="w-5 h-5" />
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-[20px] p-5 text-white shadow-lg shadow-orange-500/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                <Clock className="w-5 h-5 text-white" />
+                            </div>
                         </div>
+                        <p className="text-3xl font-bold mb-1">{stats.pending}</p>
+                        <p className="text-sm text-orange-100 font-medium">Pending Review</p>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.pending}</p>
-                    <p className="text-sm text-orange-300/70">Pending Review</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-red-500/20 to-red-500/5 backdrop-blur-xl rounded-xl p-5 border border-red-500/20">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-red-500/30 flex items-center justify-center text-red-400">
-                            <AlertTriangle className="w-5 h-5" />
+                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-[20px] p-5 text-white shadow-lg shadow-red-500/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                <AlertTriangle className="w-5 h-5 text-white" />
+                            </div>
                         </div>
+                        <p className="text-3xl font-bold mb-1">{stats.urgent}</p>
+                        <p className="text-sm text-red-100 font-medium">Urgent Issues</p>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.urgent}</p>
-                    <p className="text-sm text-red-300/70">Urgent Issues</p>
                 </div>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6">
                 {/* Status Breakdown */}
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-primary" />
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-8">
+                    <h2 className="text-lg font-bold text-slate-800 mb-8 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-blue-500" />
                         Status Breakdown
                     </h2>
 
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         {[
-                            { label: 'Resolved', value: stats.resolved, total: stats.total, color: 'bg-green-500' },
-                            { label: 'In Progress', value: stats.inProgress, total: stats.total, color: 'bg-blue-500' },
-                            { label: 'Pending', value: stats.pending, total: stats.total, color: 'bg-orange-500' },
+                            { label: 'Resolved', value: stats.resolved, total: stats.total, color: 'bg-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50' },
+                            { label: 'In Progress', value: stats.inProgress, total: stats.total, color: 'bg-blue-500', text: 'text-blue-600', bg: 'bg-blue-50' },
+                            { label: 'Pending', value: stats.pending, total: stats.total, color: 'bg-orange-500', text: 'text-orange-600', bg: 'bg-orange-50' },
                         ].map((item) => (
                             <div key={item.label}>
-                                <div className="flex justify-between text-sm mb-2">
-                                    <span className="text-gray-300">{item.label}</span>
-                                    <span className="text-white font-medium">{item.value}</span>
+                                <div className="flex justify-between text-sm mb-2.5">
+                                    <span className="text-slate-600 font-medium">{item.label}</span>
+                                    <span className={`${item.text} font-bold bg-white px-2 rounded-md shadow-sm border border-slate-100`}>{item.value}</span>
                                 </div>
-                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full ${item.color} rounded-full transition-all`}
+                                        className={`h-full ${item.color} rounded-full transition-all duration-1000 ease-out`}
                                         style={{ width: `${item.total > 0 ? (item.value / item.total) * 100 : 0}%` }}
                                     />
                                 </div>
@@ -204,26 +216,36 @@ export default function OfficerAnalyticsPage() {
                 </div>
 
                 {/* Top Categories */}
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-primary" />
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-8">
+                    <h2 className="text-lg font-bold text-slate-800 mb-8 flex items-center gap-2">
+                        <PieChart className="w-5 h-5 text-purple-500" />
                         Top Issue Categories
                     </h2>
 
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {topCategories.map(([category, count], index) => {
                             const percentage = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
-                            const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500'];
+                            const colors = [
+                                { bar: 'bg-blue-500', text: 'text-blue-600', icon: 'bg-blue-100' },
+                                { bar: 'bg-emerald-500', text: 'text-emerald-600', icon: 'bg-emerald-100' },
+                                { bar: 'bg-purple-500', text: 'text-purple-600', icon: 'bg-purple-100' },
+                                { bar: 'bg-orange-500', text: 'text-orange-600', icon: 'bg-orange-100' },
+                                { bar: 'bg-pink-500', text: 'text-pink-600', icon: 'bg-pink-100' }
+                            ];
+                            const color = colors[index % colors.length];
 
                             return (
-                                <div key={category}>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="text-gray-300 capitalize">{category.replace('_', ' ')}</span>
-                                        <span className="text-white font-medium">{percentage}%</span>
+                                <div key={category} className="group">
+                                    <div className="flex justify-between text-sm mb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${color.bar}`}></div>
+                                            <span className="text-slate-600 font-medium capitalize">{category.replace('_', ' ')}</span>
+                                        </div>
+                                        <span className={`${color.text} font-bold`}>{percentage}%</span>
                                     </div>
-                                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
                                         <div
-                                            className={`h-full ${colors[index]} rounded-full transition-all`}
+                                            className={`h-full ${color.bar} rounded-full transition-all duration-1000 ease-out group-hover:opacity-80`}
                                             style={{ width: `${percentage}%` }}
                                         />
                                     </div>
@@ -234,50 +256,38 @@ export default function OfficerAnalyticsPage() {
                 </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid md:grid-cols-3 gap-4">
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-white">{avgResponseTime}</p>
-                            <p className="text-sm text-gray-400">Avg. Response Time</p>
-                        </div>
+            {/* Quick Stats Grid */}
+            <div className="grid md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center hover:shadow-md transition-all">
+                    <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 mb-4 ring-8 ring-blue-50/50">
+                        <TrendingUp className="w-8 h-8" />
                     </div>
-                    <p className="text-xs text-gray-400">
-                        {resolvedReports.length} resolved reports analyzed
+                    <p className="text-3xl font-bold text-slate-800 mb-1">{avgResponseTime}</p>
+                    <p className="text-sm font-medium text-slate-400">Avg. Response Time</p>
+                    <p className="text-xs text-slate-300 mt-2 bg-slate-50 px-2 py-1 rounded-lg">
+                        Based on {resolvedReports.length} resolved reports
                     </p>
                 </div>
 
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                            <Users className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-white">{uniqueUsers}</p>
-                            <p className="text-sm text-gray-400">Active Citizens</p>
-                        </div>
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center hover:shadow-md transition-all">
+                    <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center text-purple-500 mb-4 ring-8 ring-purple-50/50">
+                        <Users className="w-8 h-8" />
                     </div>
-                    <p className="text-xs text-gray-400">
-                        {uniqueUsers} unique reporters
+                    <p className="text-3xl font-bold text-slate-800 mb-1">{uniqueUsers}</p>
+                    <p className="text-sm font-medium text-slate-400">Active Citizens</p>
+                    <p className="text-xs text-slate-300 mt-2 bg-slate-50 px-2 py-1 rounded-lg">
+                        Unique reporters
                     </p>
                 </div>
 
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                            <MapPin className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-white">{uniqueAreas}</p>
-                            <p className="text-sm text-gray-400">Areas Covered</p>
-                        </div>
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center hover:shadow-md transition-all">
+                    <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 mb-4 ring-8 ring-orange-50/50">
+                        <MapPin className="w-8 h-8" />
                     </div>
-                    <p className="text-xs text-gray-400">
-                        {uniqueAreas} distinct areas reporting issues
+                    <p className="text-3xl font-bold text-slate-800 mb-1">{uniqueAreas}</p>
+                    <p className="text-sm font-medium text-slate-400">Areas Covered</p>
+                    <p className="text-xs text-slate-300 mt-2 bg-slate-50 px-2 py-1 rounded-lg">
+                        Distinct locations
                     </p>
                 </div>
             </div>
