@@ -1,12 +1,10 @@
 'use client';
-
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
 import { FileText, CheckCircle, Clock, AlertCircle, Plus, TrendingUp, Eye, X, MapPin, Calendar, Tag, Trash2, Phone, BadgeCheck } from 'lucide-react';
 import { parseResolutionNotes } from '@/lib/resolution-utils';
-
+import { supabase } from '@/lib/supabase';
 interface Report {
     id: string;
     user_id: string;
@@ -24,28 +22,69 @@ interface Report {
     resolution_notes?: string;
     assigned_technician_id?: string;
 }
-
+interface PublicUser {
+    id: string;
+    email: string;
+    name: string;
+}
 function DashboardContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('q')?.toLowerCase() || '';
-    const { user } = useAuthStore();
+    const [currentUser, setCurrentUser] = useState<PublicUser | null>(null);
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
+    const [authChecked, setAuthChecked] = useState(false);
     // Delete state
     const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
     const [deletionReason, setDeletionReason] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
-
     // Technician details state
     const [assignedTechnician, setAssignedTechnician] = useState<any>(null);
 
+    // Auth guard - check UID from URL and fetch user from DB
+    useEffect(() => {
+        const uid = searchParams.get('uid');
+
+        console.log('=== DASHBOARD AUTH CHECK ===');
+        console.log('UID from URL:', uid);
+
+        // Guard #1: No UID → redirect to login
+        if (!uid) {
+            console.log('Guard #1: No UID found, redirecting to login');
+            window.location.href = '/login/public';
+            return;
+        }
+
+        const fetchUser = async () => {
+            console.log('Fetching user with ID:', uid);
+            const { data: user, error } = await supabase
+                .from('public_users')
+                .select('id, name, email')
+                .eq('id', uid)
+                .single();
+
+            console.log('Fetch result:', { user, error });
+
+            // Guard #2: Invalid UID → redirect to login
+            if (error || !user) {
+                console.log('Guard #2: User not found or error, redirecting to login');
+                console.log('Error details:', error);
+                window.location.href = '/login/public';
+                return;
+            }
+
+            // Success - set user
+            console.log('Auth success! User:', user);
+            setCurrentUser(user);
+            setAuthChecked(true);
+            setMounted(true);
+        };
+
+        fetchUser();
+    }, []);
     useEffect(() => {
         if (selectedReport?.assigned_technician_id) {
             // Fetch technician details
@@ -57,27 +96,22 @@ function DashboardContent() {
             setAssignedTechnician(null);
         }
     }, [selectedReport]);
-
     useEffect(() => {
-        if (mounted && user?.id) {
+        if (mounted && authChecked && currentUser?.id) {
             fetchUserReports();
-        } else if (mounted) {
-            console.log("User not loaded yet");
         }
-    }, [user?.id, mounted]);
-
-    if (!mounted) {
+    }, [currentUser?.id, mounted, authChecked]);
+    if (!mounted || !authChecked) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
         );
     }
-
     const fetchUserReports = async () => {
         try {
             // Fetch only reports from this user
-            const response = await fetch(`/api/reports?userId=${user?.id}`);
+            const response = await fetch(`/api/reports?userId=${currentUser?.id}`);
             if (response.ok) {
                 const data = await response.json();
                 setReports(data.reports || []);
@@ -88,31 +122,26 @@ function DashboardContent() {
             setLoading(false);
         }
     };
-
     const handleDeleteClick = (e: React.MouseEvent, reportId: string) => {
         e.stopPropagation(); // Prevent opening details modal if clicked on card
         setDeletingReportId(reportId);
         setDeletionReason('');
     };
-
     const confirmDelete = async () => {
         if (!deletingReportId) return;
         if (!deletionReason.trim()) {
             alert('Please provide a reason for deletion');
             return;
         }
-
         setIsDeleting(true);
         try {
             const response = await fetch(`/api/reports?id=${deletingReportId}&reason=${encodeURIComponent(deletionReason)}`, {
                 method: 'DELETE',
             });
-
             if (response.ok) {
                 // Remove from local state immediately
                 setReports(reports.filter(r => r.id !== deletingReportId));
                 setDeletingReportId(null);
-
                 // If the deleted report was currently open in details modal, close it
                 if (selectedReport?.id === deletingReportId) {
                     setSelectedReport(null);
@@ -127,7 +156,6 @@ function DashboardContent() {
             setIsDeleting(false);
         }
     };
-
     // Calculate stats from user's reports only
     const stats = {
         total: reports.length,
@@ -135,7 +163,6 @@ function DashboardContent() {
         inProgress: reports.filter(r => r.status === 'in_progress').length,
         pending: reports.filter(r => r.status === 'pending').length,
     };
-
     const getStatusBadge = (status: Report['status']) => {
         const badges = {
             pending: { color: 'bg-orange-500', text: 'Pending Review', icon: Clock },
@@ -145,7 +172,6 @@ function DashboardContent() {
         };
         return badges[status];
     };
-
     const getPriorityBadge = (priority: Report['priority']) => {
         const badges = {
             low: { color: 'bg-slate-500', text: 'Low' },
@@ -155,7 +181,6 @@ function DashboardContent() {
         };
         return badges[priority];
     };
-
     const getCategoryIcon = (category: string) => {
         const icons: Record<string, string> = {
             pothole: 'edit_road',
@@ -171,7 +196,6 @@ function DashboardContent() {
         };
         return icons[category] || 'report';
     };
-
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
         return date.toLocaleDateString('en-IN', {
@@ -183,40 +207,36 @@ function DashboardContent() {
             minute: '2-digit'
         });
     };
-
     const formatRelativeDate = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
         if (days === 0) return 'Today';
         if (days === 1) return 'Yesterday';
         if (days < 7) return `${days} days ago`;
         return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
     };
-
     return (
         <div className="w-full">
             {/* Welcome Banner */}
             <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4 py-4">
                 <div>
                     <h1 className="text-white text-3xl md:text-5xl font-black leading-tight tracking-tighter mb-3 drop-shadow-lg">
-                        Welcome back, <span className="text-primary">{user?.name || 'User'}</span>
+                        Welcome back, <span className="text-primary">{currentUser?.name || 'User'}</span>
                     </h1>
                     <p className="text-slate-400 text-lg font-medium max-w-2xl">
                         Track your contributions to a better city. Here's what needs attention today.
                     </p>
                 </div>
                 <Link
-                    href="/public/report"
+                    href={`/public/report?uid=${searchParams.get('uid')}`}
                     className="flex items-center justify-center gap-2 h-12 px-6 bg-primary hover:bg-primary-hover rounded-xl text-white text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all active:scale-[0.98] border border-white/10"
                 >
                     <Plus className="w-5 h-5" />
                     Report New Issue
                 </Link>
             </div>
-
             {/* Stats Cards - Only show if user has reports */}
             {reports.length > 0 && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -230,7 +250,6 @@ function DashboardContent() {
                         </div>
                         <p className="text-white text-4xl font-black relative z-10">{stats.total}</p>
                     </div>
-
                     <div className="glass-card rounded-2xl p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl -mr-16 -mt-16 transition-all group-hover:bg-green-500/20" />
                         <div className="flex items-center gap-3 text-green-400 mb-4 relative z-10">
@@ -241,7 +260,6 @@ function DashboardContent() {
                         </div>
                         <p className="text-white text-4xl font-black relative z-10">{stats.resolved}</p>
                     </div>
-
                     <div className="glass-card rounded-2xl p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/10 rounded-full blur-2xl -mr-16 -mt-16 transition-all group-hover:bg-blue-400/20" />
                         <div className="flex items-center gap-3 text-blue-400 mb-4 relative z-10">
@@ -252,7 +270,6 @@ function DashboardContent() {
                         </div>
                         <p className="text-white text-4xl font-black relative z-10">{stats.inProgress}</p>
                     </div>
-
                     <div className="glass-card rounded-2xl p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -mr-16 -mt-16 transition-all group-hover:bg-orange-500/20" />
                         <div className="flex items-center gap-3 text-orange-400 mb-4 relative z-10">
@@ -265,7 +282,6 @@ function DashboardContent() {
                     </div>
                 </div>
             )}
-
             {/* Reports List */}
             {loading ? (
                 <div className="flex items-center justify-center py-32">
@@ -282,7 +298,7 @@ function DashboardContent() {
                         You haven&apos;t reported any issues yet. Help improve your community by reporting infrastructure problems nearby.
                     </p>
                     <Link
-                        href="/public/report"
+                        href={`/public/report?uid=${searchParams.get('uid')}`}
                         className="inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98]"
                     >
                         <Plus className="w-5 h-5" />
@@ -300,7 +316,6 @@ function DashboardContent() {
                         r.id.toLowerCase().includes(searchQuery)
                     ).map((report) => {
                         const statusBadge = getStatusBadge(report.status);
-
                         return (
                             <article
                                 key={report.id}
@@ -316,7 +331,6 @@ function DashboardContent() {
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 )}
-
                                 {/* Image */}
                                 <div className="relative h-56 bg-slate-900 overflow-hidden">
                                     {report.image_url ? (
@@ -333,14 +347,12 @@ function DashboardContent() {
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-transparent to-transparent opacity-90" />
-
                                     {/* Status Badge */}
                                     <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg border border-white/10 flex items-center gap-2 text-white">
                                         <span className={`w-2 h-2 rounded-full ${statusBadge.color} ${report.status === 'in_progress' ? 'animate-pulse' : ''}`} />
                                         {statusBadge.text}
                                     </div>
                                 </div>
-
                                 {/* Content */}
                                 <div className="p-6 flex flex-col flex-1">
                                     <div className="flex justify-between items-start mb-3">
@@ -353,15 +365,12 @@ function DashboardContent() {
                                             </h3>
                                         </div>
                                     </div>
-
                                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-3 bg-white/5 p-2 rounded-lg">
                                         <span className="whitespace-nowrap">{formatRelativeDate(report.created_at)}</span>
                                         <span className="w-1 h-1 rounded-full bg-slate-600" />
                                         <span className="truncate">{report.address}</span>
                                     </div>
-
                                     <p className="text-sm text-slate-400 mb-6 line-clamp-2 h-10">{report.description}</p>
-
                                     {/* View Details Button */}
                                     <div className="mt-auto pt-4 border-t border-white/5">
                                         <button
@@ -378,7 +387,6 @@ function DashboardContent() {
                     })}
                 </div>
             )}
-
             {/* Report Details Modal */}
             {selectedReport && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -387,7 +395,6 @@ function DashboardContent() {
                         className="absolute inset-0 bg-black/80 backdrop-blur-md"
                         onClick={() => setSelectedReport(null)}
                     />
-
                     {/* Modal */}
                     <div className="relative glass-panel rounded-3xl border border-white/10 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
                         {/* Close Button */}
@@ -397,7 +404,6 @@ function DashboardContent() {
                         >
                             <X className="w-5 h-5" />
                         </button>
-
                         {/* Image */}
                         {selectedReport.image_url && (
                             <div className="relative h-72 bg-gray-900 group">
@@ -409,7 +415,6 @@ function DashboardContent() {
                                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--background-dark)] to-transparent" />
                             </div>
                         )}
-
                         {/* Content */}
                         <div className="p-6 md:p-8 relative">
                             {/* Header */}
@@ -430,7 +435,6 @@ function DashboardContent() {
                                     {getStatusBadge(selectedReport.status).text}
                                 </div>
                             </div>
-
                             {/* Details Grid */}
                             <div className="space-y-4">
                                 {/* Description */}
@@ -445,7 +449,6 @@ function DashboardContent() {
                                         </div>
                                     </div>
                                 </div>
-
                                 {/* Location */}
                                 <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
                                     <div className="flex items-start gap-3">
@@ -463,7 +466,6 @@ function DashboardContent() {
                                         </div>
                                     </div>
                                 </div>
-
                                 {/* Meta Info Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex items-center gap-3">
@@ -485,7 +487,6 @@ function DashboardContent() {
                                         </div>
                                     </div>
                                 </div>
-
                                 {/* Resolution Notes */}
                                 {selectedReport.status === 'resolved' && selectedReport.resolution_notes && (() => {
                                     const { text, imageUrl } = parseResolutionNotes(selectedReport.resolution_notes);
@@ -510,7 +511,6 @@ function DashboardContent() {
                                         </div>
                                     );
                                 })()}
-
                                 {/* Technician Contact Card */}
                                 {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved') && (
                                     <div className="mt-6 p-1 rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20">
@@ -543,7 +543,6 @@ function DashboardContent() {
                                     </div>
                                 )}
                             </div>
-
                             {/* Actions Footer */}
                             <div className="mt-8 pt-8 border-t border-white/5 flex gap-4">
                                 <button
@@ -568,7 +567,6 @@ function DashboardContent() {
                     </div>
                 </div>
             )}
-
             {/* Delete Confirmation Modal */}
             {deletingReportId && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -576,7 +574,6 @@ function DashboardContent() {
                         className="absolute inset-0 bg-black/90 backdrop-blur-xl"
                         onClick={() => !isDeleting && setDeletingReportId(null)}
                     />
-
                     <div className="relative glass-panel rounded-3xl border border-red-500/20 shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center gap-4 mb-6 text-red-400">
                             <div className="p-3 bg-red-500/10 rounded-xl border border-red-500/20">
@@ -587,11 +584,9 @@ function DashboardContent() {
                                 <p className="text-xs text-red-400 font-mono mt-1">ID: {deletingReportId}</p>
                             </div>
                         </div>
-
                         <p className="text-slate-300 mb-6 leading-relaxed">
                             This action cannot be undone. To verify this deletion, please provide a reason below.
                         </p>
-
                         <div className="mb-8">
                             <label className="text-xs font-bold text-slate-500 uppercase mb-2 block tracking-wider">Reason for Deletion</label>
                             <textarea
@@ -602,7 +597,6 @@ function DashboardContent() {
                                 autoFocus
                             />
                         </div>
-
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setDeletingReportId(null)}
@@ -634,7 +628,6 @@ function DashboardContent() {
         </div>
     );
 }
-
 export default function DashboardClient() {
     return (
         <Suspense fallback={

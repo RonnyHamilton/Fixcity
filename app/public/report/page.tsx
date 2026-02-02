@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/store';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Upload, MapPin, Loader2, Camera, X, Check,
     Trash2, Lightbulb, Car, Paintbrush, Bus, MoreHorizontal, Dog, ArrowLeft, AlertTriangle
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 // Frontend Category IDs matching icons
 const CATEGORIES = [
@@ -19,10 +19,40 @@ const CATEGORIES = [
     { id: 'other', label: 'Other', icon: MoreHorizontal },
 ];
 
+interface PublicUser {
+    id: string;
+    email: string;
+    name: string;
+}
+
 export default function ReportIssuePage() {
     const router = useRouter();
-    const { user } = useAuthStore();
+    const searchParams = useSearchParams();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [currentUser, setCurrentUser] = useState<PublicUser | null>(null);
+
+    // Check if user is logged in (optional - report submission works for both authenticated and anonymous users)
+    useEffect(() => {
+        const fetchUser = async () => {
+            const uid = searchParams.get('uid');
+
+            if (uid) {
+                // User came from dashboard with UID - fetch their details
+                const { data: user } = await supabase
+                    .from('public_users')
+                    .select('id, name, email')
+                    .eq('id', uid)
+                    .single();
+
+                if (user) {
+                    setCurrentUser(user);
+                }
+            }
+            // If no uid, currentUser stays null (anonymous reporting)
+        };
+
+        fetchUser();
+    }, [searchParams]);
 
     // UI State
     const [loading, setLoading] = useState(false);
@@ -168,9 +198,9 @@ export default function ReportIssuePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id: user?.id || 'anonymous',
-                    user_name: user?.name || 'Anonymous',
-                    user_phone: user?.phone,
+                    user_id: currentUser?.id || 'anonymous',
+                    user_name: currentUser?.name || 'Anonymous',
+                    user_phone: undefined, // Phone not collected anymore
                     category,
                     description,
                     image_url: imageUrl,
@@ -195,7 +225,8 @@ export default function ReportIssuePage() {
 
                 // Redirect faster for spam (2 seconds)
                 setTimeout(() => {
-                    router.push('/public/my-reports');
+                    const uid = searchParams.get('uid');
+                    window.location.href = uid ? `/public/my-reports?uid=${uid}` : '/public/my-reports';
                 }, 2000);
                 return;
             }
@@ -217,7 +248,8 @@ export default function ReportIssuePage() {
 
             // Redirect after 3 seconds
             setTimeout(() => {
-                router.push('/public/dashboard');
+                const uid = searchParams.get('uid');
+                window.location.href = uid ? `/public/dashboard?uid=${uid}` : '/public/dashboard';
             }, 3500);
         } catch {
             setError('Network error. Please try again.');
@@ -289,8 +321,8 @@ export default function ReportIssuePage() {
                                         </p>
                                         <p className="text-xs text-slate-400">
                                             Priority: <span className={`font-bold ${mergedInfo.priority === 'urgent' ? 'text-red-400' :
-                                                    mergedInfo.priority === 'high' ? 'text-orange-400' :
-                                                        mergedInfo.priority === 'medium' ? 'text-yellow-400' : 'text-gray-400'
+                                                mergedInfo.priority === 'high' ? 'text-orange-400' :
+                                                    mergedInfo.priority === 'medium' ? 'text-yellow-400' : 'text-gray-400'
                                                 }`}>{mergedInfo.priority?.toUpperCase()}</span>
                                             {mergedInfo.reopened && ' • 🔄 Reopened'}
                                         </p>

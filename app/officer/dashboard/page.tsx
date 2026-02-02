@@ -73,23 +73,28 @@ export default function OfficerDashboard() {
         }
     };
 
-    // Filter reports - exclude child reports (only show canonical reports)
+    // Filter reports - exclude child reports AND rejected reports from main view
     const canonicalReports = reports.filter(r => !r.parent_report_id);
+
+    // Active reports only (excludes rejected) - used for main display
+    const activeCanonicalReports = canonicalReports.filter(r => r.status !== 'rejected');
 
     // Calculate stats from canonical reports only (excludes duplicates)
     const stats = {
-        urgent: canonicalReports.filter(r => r.priority === 'urgent' && r.status === 'pending').length,
-        pending: canonicalReports.filter(r => r.status === 'pending').length,
-        inProgress: canonicalReports.filter(r => r.status === 'in_progress').length,
-        resolved: canonicalReports.filter(r => r.status === 'resolved').length,
-        total: canonicalReports.length,
+        urgent: activeCanonicalReports.filter(r => r.priority === 'urgent' && r.status === 'pending').length,
+        pending: activeCanonicalReports.filter(r => r.status === 'pending').length,
+        inProgress: activeCanonicalReports.filter(r => r.status === 'in_progress').length,
+        resolved: activeCanonicalReports.filter(r => r.status === 'resolved').length,
+        rejected: canonicalReports.filter(r => r.status === 'rejected').length, // Track rejected separately
+        total: activeCanonicalReports.length,
     };
 
 
 
     const filteredReports = filter === 'all'
-        ? canonicalReports.filter(r => r.status === 'pending')
-        : canonicalReports.filter(r => r.status === filter);
+        ? activeCanonicalReports.filter(r => r.status === 'pending')
+        : activeCanonicalReports.filter(r => r.status === filter);
+
 
     const getPriorityConfig = (priority: string) => {
         const configs: Record<string, { color: string; bg: string; label: string }> = {
@@ -127,6 +132,8 @@ export default function OfficerDashboard() {
                 }),
             });
 
+            const data = await response.json();
+
             if (response.ok) {
                 // Refresh data to show updated list
                 await fetchData();
@@ -134,14 +141,17 @@ export default function OfficerDashboard() {
                 setRejectionReason('');
                 setReportToReject(null);
             } else {
-                console.error('Failed to reject report');
+                console.error('Failed to reject report:', data.error || data);
+                alert(`Failed to reject report: ${data.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error rejecting report:', error);
+            alert('Network error while rejecting report');
         } finally {
             setRejecting(false);
         }
     };
+
 
     if (loading) {
         return (
@@ -221,12 +231,13 @@ export default function OfficerDashboard() {
 
             {/* Most Reported Issues Widget */}
             {(() => {
-                const mostReported = canonicalReports
-                    .filter(r => (r.report_count || 1) > 1) // Changed from duplicate_count
+                const mostReported = activeCanonicalReports
+                    .filter(r => (r.report_count || 1) > 1)
                     .sort((a, b) => (b.report_count || 1) - (a.report_count || 1))
                     .slice(0, 3);
 
                 if (mostReported.length === 0) return null;
+
 
                 return (
                     <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-xl rounded-xl p-6 border border-purple-500/20">

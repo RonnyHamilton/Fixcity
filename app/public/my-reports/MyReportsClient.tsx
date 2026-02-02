@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useAuthStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { FileText, Clock, CheckCircle, AlertCircle, ChevronRight, Plus, X, MapPin, Calendar, Tag, Trash2, Phone, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -24,10 +24,16 @@ interface Report {
     updated_at: string;
 }
 
+interface PublicUser {
+    id: string;
+    name: string;
+    email: string;
+}
+
 function MyReportsContent() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('q')?.toLowerCase() || '';
-    const { user } = useAuthStore();
+    const [user, setUser] = useState<PublicUser | null>(null);
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -40,6 +46,26 @@ function MyReportsContent() {
 
     // Technician details state
     const [assignedTechnician, setAssignedTechnician] = useState<any>(null);
+
+    // Fetch user from URL params
+    useEffect(() => {
+        const uid = searchParams.get('uid');
+        if (!uid) return;
+
+        const fetchUser = async () => {
+            const { data } = await supabase
+                .from('public_users')
+                .select('id, name, email')
+                .eq('id', uid)
+                .single();
+
+            if (data) {
+                setUser(data);
+            }
+        };
+
+        fetchUser();
+    }, [searchParams]);
 
     useEffect(() => {
         if (selectedReport?.assigned_technician_id) {
@@ -198,7 +224,7 @@ function MyReportsContent() {
                     <p className="text-gray-400">Track the status of issues you&apos;ve reported</p>
                 </div>
                 <Link
-                    href="/public/report"
+                    href={`/public/report?uid=${searchParams.get('uid')}`}
                     className="flex items-center justify-center gap-2 h-10 px-4 bg-primary hover:bg-blue-600 rounded-lg text-white text-sm font-bold shadow-lg transition-all"
                 >
                     <Plus className="w-4 h-4" />
@@ -248,7 +274,7 @@ function MyReportsContent() {
                     </p>
                     {filter === 'all' && (
                         <Link
-                            href="/public/report"
+                            href={`/public/report?uid=${searchParams.get('uid')}`}
                             className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-all"
                         >
                             <Plus className="w-5 h-5" />

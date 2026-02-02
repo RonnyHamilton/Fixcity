@@ -3,38 +3,63 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Home, FileText, HelpCircle, AlertCircle, LogOut, Search, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+interface PublicUser {
+    id: string;
+    name: string;
+    email: string;
+}
 
 function PublicLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { user, isAuthenticated, role, logout } = useAuthStore();
     const [mounted, setMounted] = useState(false);
+    const [user, setUser] = useState<PublicUser | null>(null);
 
+    // Auth check - uses UID from URL, not auth store
     useEffect(() => {
-        setMounted(true);
-        if (mounted && (!isAuthenticated || role !== 'public')) {
-            router.push('/login/public');
+        const uid = searchParams.get('uid');
+
+        // No UID in URL → redirect to login
+        if (!uid) {
+            window.location.href = '/login/public';
+            return;
         }
-    }, [isAuthenticated, role, router, mounted]);
+
+        // Fetch user from database
+        const fetchUser = async () => {
+            const { data, error } = await supabase
+                .from('public_users')
+                .select('id, name, email')
+                .eq('id', uid)
+                .single();
+
+            if (error || !data) {
+                window.location.href = '/login/public';
+                return;
+            }
+
+            setUser(data);
+            setMounted(true);
+        };
+
+        fetchUser();
+    }, [searchParams]);
 
     const handleLogout = () => {
-        logout();
-        router.push('/');
+        window.location.href = '/';
     };
 
     const handleSearch = (term: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (term) {
-            params.set('q', term);
-        } else {
-            params.delete('q');
-        }
+        const uid = searchParams.get('uid');
+        const params = new URLSearchParams();
+        if (uid) params.set('uid', uid);
+        if (term) params.set('q', term);
 
-        // If we are on the help page, redirect to dashboard with search
         if (pathname === '/public/help') {
             router.push(`/public/dashboard?${params.toString()}`);
         } else {
@@ -42,7 +67,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
         }
     };
 
-    if (!mounted) {
+    if (!mounted || !user) {
         return (
             <div className="min-h-screen bg-[#0a0f16] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -50,18 +75,12 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (!isAuthenticated || role !== 'public') {
-        return (
-            <div className="min-h-screen bg-[#0a0f16] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-        );
-    }
-
+    // Build URLs with uid preserved
+    const uid = searchParams.get('uid');
     const navItems = [
-        { path: '/public/dashboard', label: 'Dashboard', icon: Home },
-        { path: '/public/my-reports', label: 'My Reports', icon: FileText },
-        { path: '/public/help', label: 'Help', icon: HelpCircle },
+        { path: `/public/dashboard?uid=${uid}`, label: 'Dashboard', icon: Home },
+        { path: `/public/my-reports?uid=${uid}`, label: 'My Reports', icon: FileText },
+        { path: `/public/help?uid=${uid}`, label: 'Help', icon: HelpCircle },
     ];
 
     return (
@@ -84,7 +103,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                 <div className="mx-auto max-w-7xl flex items-center justify-between gap-6 md:gap-12">
                     <div className="flex items-center gap-4 xl:gap-8">
                         {/* Logo */}
-                        <Link href="/public/dashboard" className="flex items-center gap-3 group">
+                        <Link href={`/public/dashboard?uid=${uid}`} className="flex items-center gap-3 group">
                             <div className="w-10 h-10 text-primary flex items-center justify-center bg-primary/10 rounded-xl border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.15)] group-hover:scale-105 transition-transform">
                                 <span className="material-symbols-outlined text-2xl">volunteer_activism</span>
                             </div>
@@ -96,7 +115,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                         {/* Navigation */}
                         <nav className="hidden md:flex items-center gap-1 bg-white/5 rounded-full p-1.5 backdrop-blur-md border border-white/5">
                             {navItems.map((item) => {
-                                const isActive = pathname === item.path;
+                                const isActive = pathname === item.path.split('?')[0];
                                 return (
                                     <Link
                                         key={item.path}
@@ -135,7 +154,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
 
                         {/* Report Button */}
                         <Link
-                            href="/public/report"
+                            href={`/public/report?uid=${uid}`}
                             className="bg-primary hover:bg-primary-hover text-white h-10 px-5 rounded-full text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 border border-white/10"
                         >
                             <AlertCircle className="w-4 h-4" />
@@ -155,7 +174,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                             <div className="absolute right-0 mt-4 w-56 py-2 bg-[#0a0f16]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-right scale-95 group-hover:scale-100 z-50">
                                 <div className="px-5 py-3 border-b border-white/5">
                                     <p className="text-sm font-bold text-white whitespace-nowrap">{user?.name || 'User'}</p>
-                                    <p className="text-xs text-slate-400 mt-0.5 font-mono opacity-80">ID: {user?.aadhaar?.slice(0, 4)}****</p>
+                                    <p className="text-xs text-slate-400 mt-0.5 font-mono opacity-80">{user?.email}</p>
                                 </div>
                                 <div className="p-2">
                                     <button

@@ -21,14 +21,64 @@ export interface ReportForComparison {
     status?: string;
     updated_at?: string;
     created_at?: string;
+    address?: string;
 }
 
 /**
+ * Category synonym mappings for handling legacy data and common variations
+ * Maps alternative category names to canonical forms
+ */
+const CATEGORY_MAPPINGS: Record<string, string> = {
+    'pothole': 'road damage',
+    'pot hole': 'road damage',
+    'pot-hole': 'road damage',
+    'road issue': 'road damage',
+    'road defect': 'road damage',
+    'pavement': 'road damage',
+    'garbage': 'sanitation',
+    'trash': 'sanitation',
+    'waste': 'sanitation',
+    'litter': 'sanitation',
+    'rubbish': 'sanitation',
+    'street light': 'streetlight',
+    'street-light': 'streetlight',
+    'lamp': 'streetlight',
+};
+
+/**
+ * Category-specific distance thresholds (in meters)
+ * Different issue types have different spatial characteristics
+ */
+const CATEGORY_DISTANCE_THRESHOLDS: Record<string, number> = {
+    'road damage': 200,      // Potholes/road issues: campus-scale (200m)
+    'pothole': 200,          // Legacy support
+    'sanitation': 300,       // Garbage: street-level with GPS drift
+    'streetlight': 150,      // Infrastructure: moderate range
+    'default': 100,          // Conservative default
+};
+
+/**
+ * Categories where distance-only matching is sufficient (no text similarity required)
+ * These are location-based issues where the exact description doesn't matter
+ */
+const DISTANCE_ONLY_CATEGORIES = [
+    'road damage',
+    'pothole',
+    'sanitation',
+    'waste',
+    'garbage',
+    'trash',
+    'litter',
+];
+
+/**
  * Normalize category for consistent matching
- * Converts to lowercase and trims whitespace
+ * Applies synonym mappings, then converts to lowercase and trims
  */
 export function normalizeCategory(category: string): string {
-    return category.trim().toLowerCase();
+    const trimmed = category.trim().toLowerCase();
+    // Apply category mappings if exists
+    return CATEGORY_MAPPINGS[trimmed] || trimmed;
 }
 
 /**
@@ -43,8 +93,19 @@ export function normalizeDescription(description: string): string {
 }
 
 /**
+ * Check if coordinates are valid (not NULL, 0, or out of range)
+ */
+export function hasValidCoordinates(lat: number, lon: number): boolean {
+    if (lat === 0 && lon === 0) return false; // GPS failure default
+    if (isNaN(lat) || isNaN(lon)) return false;
+    if (lat < -90 || lat > 90) return false;
+    if (lon < -180 || lon > 180) return false;
+    return true;
+}
+
+/**
  * Calculate distance between two geographic points using Haversine formula
- * @returns Distance in meters
+ * @returns Distance in meters, or Infinity if coordinates are invalid
  */
 export function calculateGeoDistance(
     lat1: number,
@@ -52,6 +113,11 @@ export function calculateGeoDistance(
     lat2: number,
     lon2: number
 ): number {
+    // Return Infinity for invalid coordinates (prevents false matches)
+    if (!hasValidCoordinates(lat1, lon1) || !hasValidCoordinates(lat2, lon2)) {
+        return Infinity;
+    }
+
     const R = 6371000; // Earth's radius in meters
     const dLat = toRadians(lat2 - lat1);
     const dLon = toRadians(lon2 - lon1);
@@ -119,33 +185,25 @@ export function findPotentialDuplicates(
     const normalizedNewCategory = normalizeCategory(newReport.category);
     const normalizedNewDesc = normalizeDescription(newReport.description);
 
-    // Categories where location alone is enough (using substring matching for flexibility)
-    // This handles variations like "Sanitation Issue", "Waste Management", "garbage-report", etc.
-    const isSanitationCategory = (category: string) => {
-        const lower = category.toLowerCase();
-        return (
-            lower.includes('sanitation') ||
-            lower.includes('waste') ||
-            lower.includes('garbage') ||
-            lower.includes('trash') ||
-            lower.includes('litter')
-        );
-    };
+    // Check if this category allows distance-only matching (no text similarity required)
+    const isDistanceOnlyCategory = DISTANCE_ONLY_CATEGORIES.some(cat =>
+        normalizedNewCategory.includes(cat)
+    );
 
-    const isLocationOnlyCategory = isSanitationCategory(normalizedNewCategory);
+    // Get category-specific distance threshold, or use default
+    const MAX_DISTANCE = CATEGORY_DISTANCE_THRESHOLDS[normalizedNewCategory]
+        || CATEGORY_DISTANCE_THRESHOLDS['default'];
 
-    // Increased distance for sanitation to account for GPS drift
-    // Garbage on a street might be "same issue" even if 200m apart due to phone GPS variance
-    // Real-world testing shows 300m is optimal for street-level sanitation issues
-    const MAX_DISTANCE = isLocationOnlyCategory
-        ? 300 // Sanitation: very lenient (GPS drift + street-wide issues + phone variance)
-        : DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS; // Other: strict 100m
+    // Check if coordinates are valid for this report
+    const hasValidCoords = hasValidCoordinates(newReport.latitude, newReport.longitude);
 
     if (debug) {
         console.log('\n========== DUPLICATE DETECTION START ==========');
-        console.log(`[NEW REPORT] Category: "${normalizedNewCategory}" | Location-only mode: ${isLocationOnlyCategory}`);
+        console.log(`[NEW REPORT] Category: "${normalizedNewCategory}" | Distance-only mode: ${isDistanceOnlyCategory}`);
         console.log(`[NEW REPORT] Distance threshold: ${MAX_DISTANCE}m`);
+        console.log(`[NEW REPORT] Valid coordinates: ${hasValidCoords}`);
         console.log(`[NEW REPORT] Coordinates: (${newReport.latitude}, ${newReport.longitude})`);
+        if (newReport.address) console.log(`[NEW REPORT] Address: "${newReport.address}"`);
         console.log(`[NEW REPORT] Description: "${normalizedNewDesc.substring(0, 60)}..."`);
         console.log(`[CANDIDATES] Checking ${existingReports.length} potential duplicates\n`);
     }
@@ -169,7 +227,7 @@ export function findPotentialDuplicates(
                 return false;
             }
 
-            // Check geo-distance
+            // Check geo-distance (or address fallback if coordinates invalid)
             const distance = calculateGeoDistance(
                 newReport.latitude,
                 newReport.longitude,
@@ -177,22 +235,34 @@ export function findPotentialDuplicates(
                 existing.longitude
             );
 
+            // If distance is Infinity (invalid coordinates), try address-based matching
+            const addressMatch = !hasValidCoords && newReport.address && existing.address
+                ? newReport.address.trim().toLowerCase() === existing.address.trim().toLowerCase()
+                : false;
+
             if (debug) {
-                console.log(`[CANDIDATE ${existing.id}] user_id=${(existing as any).user_id || 'unknown'} | distance=${distance.toFixed(2)}m (threshold: ${MAX_DISTANCE}m)`);
+                console.log(`[CANDIDATE ${existing.id}] user_id=${(existing as any).user_id || 'unknown'} | distance=${distance === Infinity ? 'N/A (invalid coords)' : distance.toFixed(2) + 'm'} (threshold: ${MAX_DISTANCE}m)`);
+                if (addressMatch) console.log(`  📍 Address match: "${newReport.address}"`);
             }
 
-            // Distance check - ALWAYS required
-            if (distance > MAX_DISTANCE) {
+            // Distance check (or address match as fallback)
+            if (distance > MAX_DISTANCE && !addressMatch) {
                 if (debug) {
-                    console.log(`  ❌ Distance too far (${distance.toFixed(2)}m > ${MAX_DISTANCE}m)`);
+                    const reason = distance === Infinity
+                        ? 'Invalid coordinates and no address match'
+                        : `Distance too far (${distance.toFixed(2)}m > ${MAX_DISTANCE}m)`;
+                    console.log(`  ❌ ${reason}`);
                 }
                 return false;
             }
 
-            // For sanitation/waste/garbage: Distance alone is enough!
-            if (isLocationOnlyCategory) {
+            // For distance-only categories: Distance (or address) alone is enough!
+            if (isDistanceOnlyCategory) {
                 if (debug) {
-                    console.log(`  ✅ MATCH - Sanitation category, distance within threshold (${distance.toFixed(2)}m <= ${MAX_DISTANCE}m)`);
+                    const matchReason = addressMatch
+                        ? 'address match'
+                        : `distance ${distance.toFixed(2)}m <= ${MAX_DISTANCE}m`;
+                    console.log(`  ✅ MATCH - Distance-only category, ${matchReason}`);
                     console.log(`  📊 Decision: MERGE (location-based match for ${normalizedNewCategory})`);
                 }
                 return true;

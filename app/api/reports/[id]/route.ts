@@ -137,8 +137,11 @@ export async function PATCH(
                         { status: 400 }
                     );
                 }
+                // ✅ Mark as closed so it's excluded from duplicate detection
+                updates.resolved_at = new Date().toISOString();
             }
         }
+
 
         // Auto-set status to in_progress if technician is assigned (backwards compatibility)
         if (updates.assigned_technician_id && !updates.status) {
@@ -181,6 +184,38 @@ export async function PATCH(
                 { error: 'Report not found (ID mismatch)' },
                 { status: 404 }
             );
+        }
+
+        // **EMAIL NOTIFICATIONS FOR AUTHENTICATED USERS**
+        try {
+            // Trigger email when technician is assigned
+            if (updates.assigned_technician_id && updates.status === 'in_progress') {
+                // Call notify endpoint asynchronously (don't await - fire and forget)
+                fetch(`${request.nextUrl.origin}/api/reports/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reportId: id,
+                        event: 'assigned'
+                    })
+                }).catch(err => console.error('Email notification error (assigned):', err));
+            }
+
+            // Trigger email when report is resolved
+            if (updates.status === 'resolved' && currentReport.status !== 'resolved') {
+                // Call notify endpoint asynchronously (don't await - fire and forget)
+                fetch(`${request.nextUrl.origin}/api/reports/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reportId: id,
+                        event: 'resolved'
+                    })
+                }).catch(err => console.error('Email notification error (resolved):', err));
+            }
+        } catch (emailError) {
+            // Don't fail the update if email notifications fail
+            console.error('Email notification error:', emailError);
         }
 
         // Send WhatsApp status update if status changed and user_id exists

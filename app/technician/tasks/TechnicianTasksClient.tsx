@@ -136,14 +136,14 @@ function TechnicianTasksContent() {
                     />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {['all', 'in_progress', 'resolved'].map((f) => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filter === f
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-white/5 text-gray-400 hover:text-white'
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${filter === f
+                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                : 'bg-white/10 border-white/10 text-gray-300 hover:bg-white/20 hover:text-white hover:border-white/30'
                                 }`}
                         >
                             {f === 'all' ? 'All' : f.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -172,13 +172,13 @@ function TechnicianTasksContent() {
                         return (
                             <div
                                 key={task.id}
-                                className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden hover:border-emerald-500/30 transition-all"
+                                className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col relative group"
                             >
                                 <div className="flex flex-col sm:flex-row h-full">
                                     {/* Image */}
-                                    <div className="w-full h-48 sm:w-32 sm:h-auto flex-shrink-0">
+                                    <div className="w-full h-48 sm:w-32 sm:h-auto flex-shrink-0 relative overflow-hidden rounded-t-xl sm:rounded-l-xl sm:rounded-tr-none">
                                         {task.image_url ? (
-                                            <img src={task.image_url} alt="" className="w-full h-full object-cover" />
+                                            <img src={task.image_url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                                         ) : (
                                             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                                                 <MapPin className="w-8 h-8 text-gray-600" />
@@ -187,47 +187,57 @@ function TechnicianTasksContent() {
                                     </div>
 
                                     {/* Content */}
-                                    <div className="flex-1 p-4 flex flex-col">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${priority.color} ${priority.bg}`}>
-                                                {task.priority}
+                                    <div className="flex-1 p-4 flex flex-col min-w-0">
+                                        <div className="flex items-center flex-wrap gap-2 mb-2">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${priority.color} ${priority.bg} border ${priority.border}`}>
+                                                {task.priority.toUpperCase()}
                                             </span>
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${status.color} ${status.bg}`}>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${status.color} ${status.bg}`}>
                                                 {status.label}
                                             </span>
                                         </div>
-                                        <h3 className="font-semibold text-white mb-1">{task.category}</h3>
-                                        <p className="text-gray-400 text-sm flex items-center gap-1 mb-2">
-                                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                                        <h3 className="font-bold text-white text-lg mb-1 truncate">{task.category}</h3>
+                                        <p className="text-gray-300 text-sm flex items-center gap-1 mb-3">
+                                            <MapPin className="w-4 h-4 flex-shrink-0 text-emerald-500" />
                                             <span className="truncate">{task.address}</span>
                                         </p>
 
-                                        <div className="flex flex-col gap-0.5 mb-3 text-xs text-gray-500 flex-1">
-                                            <span>Reported by: {task.user_name}</span>
+                                        <div className="flex flex-col gap-1 mb-4 text-xs text-gray-400 flex-1 bg-white/5 p-3 rounded-lg border border-white/5">
+                                            <div className="flex justify-between items-center">
+                                                <span>Reporter:</span>
+                                                <span className="text-white font-medium truncate ml-2">{task.user_name}</span>
+                                            </div>
                                             {task.user_phone && (
-                                                <a href={`tel:${task.user_phone}`} className="text-emerald-400 hover:underline w-fit">
-                                                    {task.user_phone}
-                                                </a>
+                                                <div className="flex justify-between items-center">
+                                                    <span>Phone:</span>
+                                                    <a href={`tel:${task.user_phone}`} className="text-emerald-400 hover:underline font-medium ml-2">
+                                                        {task.user_phone}
+                                                    </a>
+                                                </div>
                                             )}
+                                            <div className="flex justify-between items-center">
+                                                <span>Reported:</span>
+                                                <span className="text-white ml-2">{formatDate(task.created_at)}</span>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 mt-auto pt-2 border-t border-white/5">
+                                        <div className="flex flex-wrap gap-3 mt-auto pt-3 border-t border-white/10">
                                             {task.status !== 'resolved' && (
                                                 <>
                                                     <a
                                                         href={`https://www.google.com/maps/dir/?api=1&destination=${task.latitude},${task.longitude}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-all"
+                                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-emerald-400 text-sm font-bold hover:bg-white/10 transition-all min-w-[120px] whitespace-nowrap"
                                                     >
-                                                        <Navigation className="w-3 h-3" />
+                                                        <Navigation className="w-4 h-4" />
                                                         {t.directions}
                                                     </a>
                                                     <Link
                                                         href={`/technician/tasks/${task.id}`}
-                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs font-medium hover:bg-white/10 transition-all"
+                                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:shadow-emerald-500/40 transition-all min-w-[120px] whitespace-nowrap"
                                                     >
-                                                        <Camera className="w-3 h-3" />
+                                                        <Camera className="w-4 h-4" />
                                                         {t.resolve}
                                                     </Link>
                                                 </>
@@ -235,9 +245,9 @@ function TechnicianTasksContent() {
                                             {task.status === 'resolved' && (
                                                 <Link
                                                     href={`/technician/tasks/${task.id}`}
-                                                    className="flex items-center justify-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs w-full py-1.5 rounded-lg transition-all"
+                                                    className="flex items-center justify-center gap-2 bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 text-green-400 text-sm font-bold w-full py-2.5 rounded-xl transition-all"
                                                 >
-                                                    <CheckCircle className="w-3 h-3" />
+                                                    <CheckCircle className="w-4 h-4" />
                                                     {t.completed}
                                                 </Link>
                                             )}
@@ -251,6 +261,7 @@ function TechnicianTasksContent() {
             )}
         </div>
     );
+
 }
 
 export default function TechnicianTasksClient() {
