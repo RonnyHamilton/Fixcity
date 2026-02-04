@@ -71,3 +71,93 @@ export interface OTPRecord {
     verified: boolean;
     created_at: string;
 }
+
+// ============================================
+// SUPABASE AUTH HELPERS (Public User Email + Password)
+// ============================================
+
+/**
+ * Sign up a new user with email and password
+ * Supabase will automatically send a verification email
+ */
+export async function signUp(email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: password,
+    });
+    return { data, error };
+}
+
+/**
+ * Sign in with email and password
+ */
+export async function signIn(email: string, password: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: password,
+    });
+    return { data, error };
+}
+
+/**
+ * Sign out the current user
+ */
+export async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    return { error };
+}
+
+/**
+ * Get the current auth session
+ */
+export async function getSession() {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    return { session, error };
+}
+
+/**
+ * Get the currently authenticated user
+ */
+export async function getCurrentUser() {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return { user, error };
+}
+
+/**
+ * Check if the user's email is verified
+ */
+export function isEmailVerified(user: any): boolean {
+    return user?.email_confirmed_at != null;
+}
+
+/**
+ * Listen to auth state changes
+ */
+export function onAuthStateChange(callback: (event: string, session: any) => void) {
+    return supabase.auth.onAuthStateChange(callback);
+}
+
+/**
+ * Send password reset email
+ * Supabase will send an email with a link to reset password
+ */
+export async function resetPassword(email: string) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+            redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/login/public/reset-password`,
+        }
+    );
+    return { data, error };
+}
+
+/**
+ * Update password (after clicking reset link)
+ */
+export async function updatePassword(newPassword: string) {
+    const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+    });
+    return { data, error };
+}
+

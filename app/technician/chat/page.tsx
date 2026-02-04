@@ -90,29 +90,29 @@ export default function TechnicianChatPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#101922] text-white">
+        <div className="min-h-screen bg-slate-50 text-slate-900">
             {/* Header */}
-            <header className="border-b border-white/10 bg-[#0d1419] sticky top-0 z-10">
+            <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => router.push('/technician/dashboard')}
-                            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-900"
                             aria-label="Back to technician dashboard"
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div className="flex items-center gap-3">
-                            <div className="bg-orange-500 p-2 rounded-lg">
+                            <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
                                 <MessageCircle className="w-6 h-6" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold">FixCity Chat</h1>
-                                <p className="text-xs text-gray-400">Technician Assistant</p>
+                                <h1 className="text-xl font-bold text-slate-900">FixCity Chat</h1>
+                                <p className="text-xs text-slate-500">Technician Assistant</p>
                             </div>
                         </div>
                     </div>
-                    <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/30 rounded-lg text-xs text-orange-400">
+                    <div className="px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-600 font-medium">
                         🔧 Technician
                     </div>
                 </div>
@@ -129,7 +129,7 @@ export default function TechnicianChatPage() {
                                 }`}
                         >
                             <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${msg.sender === 'bot' ? 'bg-orange-500' : 'bg-white/10'
+                                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${msg.sender === 'bot' ? 'bg-orange-100 text-orange-600' : 'bg-slate-200 text-slate-600'
                                     }`}
                             >
                                 {msg.sender === 'bot' ? (
@@ -140,13 +140,13 @@ export default function TechnicianChatPage() {
                             </div>
 
                             <div
-                                className={`max-w-[70%] px-4 py-3 rounded-2xl ${msg.sender === 'bot'
-                                    ? 'bg-white/5 border border-white/10'
+                                className={`max-w-[70%] px-4 py-3 rounded-2xl shadow-sm ${msg.sender === 'bot'
+                                    ? 'bg-white border border-slate-200 text-slate-800'
                                     : 'bg-orange-500 text-white'
                                     }`}
                             >
                                 <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                                <p className="text-xs opacity-50 mt-1">
+                                <p className={`text-xs mt-1 ${msg.sender === 'bot' ? 'text-slate-400' : 'text-white/70'}`}>
                                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             </div>
@@ -155,11 +155,11 @@ export default function TechnicianChatPage() {
 
                     {isLoading && (
                         <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-orange-500">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-orange-100 text-orange-600">
                                 <Bot className="w-5 h-5" />
                             </div>
-                            <div className="bg-white/5 border border-white/10 px-4 py-3 rounded-2xl">
-                                <p className="text-sm text-gray-400">Typing...</p>
+                            <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl shadow-sm">
+                                <p className="text-sm text-slate-500">Typing...</p>
                             </div>
                         </div>
                     )}
@@ -174,7 +174,7 @@ export default function TechnicianChatPage() {
                             key={index}
                             onClick={() => handleSubmit(suggestion.text)}
                             disabled={isLoading}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs text-gray-300 hover:text-white transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-full text-xs text-slate-600 hover:text-slate-900 transition-all disabled:opacity-50 shadow-sm"
                         >
                             {suggestion.text}
                         </button>
@@ -183,33 +183,33 @@ export default function TechnicianChatPage() {
 
                 {/* Error Message */}
                 {error && (
-                    <div className="mb-3 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                    <div className="mb-3 px-4 py-2 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm">
                         {error}
                     </div>
                 )}
 
                 {/* Input Area */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2 flex items-end gap-2">
+                <div className="bg-white border border-slate-200 rounded-xl p-2 flex items-end gap-2 shadow-sm">
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="Ask about completing tasks, uploading proof..."
-                        className="flex-1 bg-transparent px-3 py-2 text-white placeholder-gray-500 resize-none focus:outline-none max-h-32"
+                        className="flex-1 bg-transparent px-3 py-2 text-slate-900 placeholder-slate-400 resize-none focus:outline-none max-h-32"
                         rows={1}
                         disabled={isLoading}
                     />
                     <button
                         onClick={() => handleSubmit()}
                         disabled={!input.trim() || isLoading}
-                        className="bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                        className="bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-sm"
                         aria-label="Send message"
                     >
                         <Send className="w-5 h-5" />
                     </button>
                 </div>
 
-                <p className="text-center text-xs text-gray-500 mt-2">
+                <p className="text-center text-xs text-slate-400 mt-2">
                     Verify important information with your supervisor if needed.
                 </p>
             </div>

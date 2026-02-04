@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import {
     AlertTriangle, Clock, CheckCircle, TrendingUp,
-    MapPin, User, ChevronRight, Filter, MoreVertical,
-    ArrowUpRight, ArrowDownRight, Users, Wrench, X
+    MapPin, ChevronRight, Filter, MoreVertical,
+    ArrowUpRight, Users, Wrench, X, Search, Calendar, Shield
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -21,8 +21,9 @@ interface Report {
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     created_at: string;
-    report_count?: number; // Changed from duplicate_count to match schema
+    report_count?: number;
     parent_report_id?: string | null;
+    resolution_notes?: string;
 }
 
 interface Technician {
@@ -73,32 +74,45 @@ export default function OfficerDashboard() {
         }
     };
 
-    // Filter reports - exclude child reports (only show canonical reports)
+    // Filter reports - exclude child reports AND rejected reports from main view
     const canonicalReports = reports.filter(r => !r.parent_report_id);
+
+    // Active reports only (excludes rejected) - used for main display
+    const activeCanonicalReports = canonicalReports.filter(r => r.status !== 'rejected');
 
     // Calculate stats from canonical reports only (excludes duplicates)
     const stats = {
-        urgent: canonicalReports.filter(r => r.priority === 'urgent' && r.status === 'pending').length,
-        pending: canonicalReports.filter(r => r.status === 'pending').length,
-        inProgress: canonicalReports.filter(r => r.status === 'in_progress').length,
-        resolved: canonicalReports.filter(r => r.status === 'resolved').length,
-        total: canonicalReports.length,
+        urgent: activeCanonicalReports.filter(r => r.priority === 'urgent' && r.status === 'pending').length,
+        pending: activeCanonicalReports.filter(r => r.status === 'pending').length,
+        inProgress: activeCanonicalReports.filter(r => r.status === 'in_progress').length,
+        resolved: activeCanonicalReports.filter(r => r.status === 'resolved').length,
+        rejected: canonicalReports.filter(r => r.status === 'rejected').length,
+        total: activeCanonicalReports.length,
     };
 
-
-
     const filteredReports = filter === 'all'
-        ? canonicalReports.filter(r => r.status === 'pending')
-        : canonicalReports.filter(r => r.status === filter);
+        ? activeCanonicalReports.filter(r => r.status === 'pending' || r.status === 'in_progress')
+        : activeCanonicalReports.filter(r => r.status === filter);
+
 
     const getPriorityConfig = (priority: string) => {
         const configs: Record<string, { color: string; bg: string; label: string }> = {
-            urgent: { color: 'text-red-400', bg: 'bg-red-500/20', label: 'Urgent' },
-            high: { color: 'text-orange-400', bg: 'bg-orange-500/20', label: 'High' },
-            medium: { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Medium' },
-            low: { color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Low' },
+            urgent: { color: 'text-red-600', bg: 'bg-red-50', label: 'Urgent' },
+            high: { color: 'text-orange-600', bg: 'bg-orange-50', label: 'High' },
+            medium: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'Medium' },
+            low: { color: 'text-slate-500', bg: 'bg-slate-100', label: 'Low' },
         };
         return configs[priority] || configs.low;
+    };
+
+    const getStatusConfig = (status: string) => {
+        const configs: Record<string, { color: string; bg: string; label: string }> = {
+            pending: { color: 'text-orange-600', bg: 'bg-orange-50', label: 'Pending' },
+            in_progress: { color: 'text-blue-600', bg: 'bg-blue-50', label: 'In Progress' },
+            resolved: { color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Resolved' },
+            rejected: { color: 'text-red-600', bg: 'bg-red-50', label: 'Rejected' },
+        };
+        return configs[status] || configs.pending;
     };
 
     const formatTimeAgo = (dateStr: string) => {
@@ -127,17 +141,20 @@ export default function OfficerDashboard() {
                 }),
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                // Refresh data to show updated list
                 await fetchData();
                 setShowRejectModal(false);
                 setRejectionReason('');
                 setReportToReject(null);
             } else {
-                console.error('Failed to reject report');
+                console.error('Failed to reject report:', data.error || data);
+                alert(`Failed to reject report: ${data.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error rejecting report:', error);
+            alert('Network error while rejecting report');
         } finally {
             setRejecting(false);
         }
@@ -146,317 +163,262 @@ export default function OfficerDashboard() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-white">Welcome, {user?.name}</h1>
-                    <p className="text-gray-400">{user?.area} • Officer Dashboard</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            {/* LEFT COLUMN - Profile & Quick Stats (3 Cols) */}
+            <div className="lg:col-span-3 space-y-6">
+                {/* Profile Card */}
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
+                    <div className="relative mb-4">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[3px]">
+                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                                <Shield className="w-10 h-10 text-blue-600" />
+                            </div>
+                        </div>
+                        <div className="absolute bottom-1 right-1 w-6 h-6 bg-emerald-400 border-4 border-white rounded-full"></div>
+                    </div>
+
+                    <h2 className="text-xl font-bold text-slate-800">{user?.name || 'Officer'}</h2>
+                    <p className="text-sm text-slate-500 font-medium mb-6 uppercase tracking-wide">{user?.area || 'Municipal District'}</p>
+
+                    <div className="grid grid-cols-3 gap-2 w-full pt-6 border-t border-slate-100">
+                        <div className="flex flex-col items-center">
+                            <span className="text-lg font-bold text-slate-800">{stats.pending}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">Pending</span>
+                        </div>
+                        <div className="flex flex-col items-center border-l border-slate-100">
+                            <span className="text-lg font-bold text-slate-800">{stats.inProgress}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">Active</span>
+                        </div>
+                        <div className="flex flex-col items-center border-l border-slate-100">
+                            <span className="text-lg font-bold text-slate-800">{stats.resolved}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">Done</span>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <select className="bg-white/5 border border-white/10 text-white rounded-lg px-4 py-2 text-sm w-full sm:w-auto">
-                        <option className="bg-[#0f172a] text-white">Last 7 days</option>
-                        <option className="bg-[#0f172a] text-white">Last 30 days</option>
-                        <option className="bg-[#0f172a] text-white">This Month</option>
-                    </select>
+
+                {/* Mini Calendar / Status Widget (Visual Only filler for spacing if needed, or just specific stats) */}
+                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[24px] p-6 shadow-lg text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <Shield className="w-32 h-32" />
+                    </div>
+                    <p className="text-indigo-200 text-sm font-medium mb-1">System Status</p>
+                    <h3 className="text-2xl font-bold mb-4">Operational</h3>
+                    <div className="flex items-center gap-2 text-sm text-indigo-200">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                        All systems active
+                    </div>
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-red-500/20 to-red-500/5 backdrop-blur-xl rounded-xl p-5 border border-red-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-red-500/30 flex items-center justify-center text-red-400">
-                            <AlertTriangle className="w-5 h-5" />
-                        </div>
-                        <span className="flex items-center gap-1 text-red-400 text-sm font-medium bg-red-500/20 px-2 py-0.5 rounded">
-                            <ArrowUpRight className="w-3 h-3" />
-                            +3
-                        </span>
+            {/* CENTER COLUMN - KPIs & Main Reports List (6 Cols) */}
+            <div className="lg:col-span-6 space-y-6">
+                {/* Header Welcome */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Welcome, {user?.name?.split(' ')[0]}</h1>
+                        <p className="text-slate-500">Your city issue oversight module</p>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.urgent}</p>
-                    <p className="text-sm text-red-300/70">Urgent Issues</p>
+                    {/* Date Pill */}
+                    <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-200 text-slate-500 text-sm">
+                        <Calendar className="w-4 h-4" />
+                        <span>{new Date().toLocaleDateString()}</span>
+                    </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 backdrop-blur-xl rounded-xl p-5 border border-orange-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-500/30 flex items-center justify-center text-orange-400">
-                            <Clock className="w-5 h-5" />
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Card 1 */}
+                    <div className="bg-gradient-to-br from-[#FF9A9E] to-[#FECFEF] rounded-[24px] p-6 text-white shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-4 right-4 bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                            <Clock className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="mt-8">
+                            <h3 className="text-4xl font-bold mb-1">{stats.pending + stats.urgent}</h3>
+                            <p className="font-medium text-white/90">Pending Issues</p>
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.pending}</p>
-                    <p className="text-sm text-orange-300/70">Pending Review</p>
-                </div>
 
-                <div className="bg-gradient-to-br from-blue-500/20 to-blue-500/5 backdrop-blur-xl rounded-xl p-5 border border-blue-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-500/30 flex items-center justify-center text-blue-400">
-                            <TrendingUp className="w-5 h-5" />
+                    {/* Card 2 */}
+                    <div className="bg-gradient-to-br from-[#a18cd1] to-[#fbc2eb] rounded-[24px] p-6 text-white shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-4 right-4 bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                            <TrendingUp className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="mt-8">
+                            <h3 className="text-4xl font-bold mb-1">{stats.inProgress}</h3>
+                            <p className="font-medium text-white/90">In Progress</p>
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.inProgress}</p>
-                    <p className="text-sm text-blue-300/70">In Progress</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-500/20 to-green-500/5 backdrop-blur-xl rounded-xl p-5 border border-green-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-green-500/30 flex items-center justify-center text-green-400">
-                            <CheckCircle className="w-5 h-5" />
-                        </div>
-                        <span className="flex items-center gap-1 text-green-400 text-sm font-medium bg-green-500/20 px-2 py-0.5 rounded">
-                            <ArrowUpRight className="w-3 h-3" />
-                            +12
-                        </span>
+                {/* Filters & Actions */}
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-slate-800">Prioritized Tasks</h2>
+                    <div className="flex gap-2">
+                        {['all', 'pending', 'in_progress'].map((f) => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${filter === f
+                                    ? 'bg-slate-900 text-white shadow-md'
+                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
+                                    }`}
+                            >
+                                {f === 'all' ? 'All' : f.replace('_', ' ').charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
+                            </button>
+                        ))}
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stats.resolved}</p>
-                    <p className="text-sm text-green-300/70">Resolved Today</p>
                 </div>
-            </div>
 
-            {/* Most Reported Issues Widget */}
-            {(() => {
-                const mostReported = canonicalReports
-                    .filter(r => (r.report_count || 1) > 1) // Changed from duplicate_count
-                    .sort((a, b) => (b.report_count || 1) - (a.report_count || 1))
-                    .slice(0, 3);
+                {/* Reports Feed */}
+                <div className="space-y-4">
+                    {filteredReports.length === 0 ? (
+                        <div className="bg-white rounded-[24px] p-12 text-center border dashed border-slate-200 border-2">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                <CheckCircle className="w-8 h-8" />
+                            </div>
+                            <p className="text-slate-500 font-medium">No tasks found</p>
+                            <p className="text-slate-400 text-sm">Great job keeping the city clean!</p>
+                        </div>
+                    ) : (
+                        filteredReports.map((report) => {
+                            const priority = getPriorityConfig(report.priority);
+                            const status = getStatusConfig(report.status);
 
-                if (mostReported.length === 0) return null;
-
-                return (
-                    <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-xl rounded-xl p-6 border border-purple-500/20">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-purple-400" />
-                            Most Reported Issues
-                        </h3>
-                        <div className="space-y-3">
-                            {mostReported.map((report, index) => (
+                            return (
                                 <div
                                     key={report.id}
-                                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
                                     onClick={() => router.push(`/officer/reports/${report.id}`)}
+                                    className="bg-white rounded-[20px] p-4 shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all cursor-pointer group"
                                 >
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                                        <span className="text-2xl font-bold text-purple-400 flex-shrink-0">
-                                            #{index + 1}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-white font-medium truncate">{report.category}</p>
-                                            <p className="text-gray-400 text-sm truncate">{report.address}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="px-3 py-1 bg-purple-500/20 text-purple-300 text-sm font-semibold rounded">
-                                            {report.report_count || 1} reports
-                                        </span>
-                                        <span className={`px-2 py-1 ${getPriorityConfig(report.priority).bg} ${getPriorityConfig(report.priority).color} text-xs font-medium rounded`}>
-                                            {getPriorityConfig(report.priority).label}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {/* Task Assignment Overview */}
-            <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Wrench className="w-5 h-5 text-primary" />
-                            Task Assignments
-                        </h2>
-                        <p className="text-sm text-gray-400 mt-1">
-                            Overview of technician workload distribution
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => router.push('/officer/technicians')}
-                        className="px-3 py-1.5 text-xs text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center gap-1"
-                    >
-                        View All
-                        <ChevronRight className="w-3 h-3" />
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {technicians.slice(0, 6).map((tech) => {
-                        const assignedTasks = canonicalReports.filter(
-                            r => r.assigned_technician_id === tech.id
-                        );
-                        const activeTasks = assignedTasks.filter(r => r.status === 'in_progress');
-                        const completedTasks = assignedTasks.filter(r => r.status === 'resolved');
-                        const totalAssigned = assignedTasks.length;
-
-                        return (
-                            <div
-                                key={tech.id}
-                                className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-primary/30 transition-all group"
-                            >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tech.available
-                                            ? 'bg-emerald-500/20 text-emerald-400'
-                                            : 'bg-gray-500/20 text-gray-400'
-                                            }`}>
-                                            <Wrench className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-white font-medium text-sm">{tech.name}</p>
-                                            <p className="text-gray-500 text-xs">{tech.specialization}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`w-2 h-2 rounded-full ${tech.available ? 'bg-green-400' : 'bg-gray-500'
-                                        }`} />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-400">Total Assigned</span>
-                                        <span className="text-white font-medium">{totalAssigned}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-400 flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            In Progress
-                                        </span>
-                                        <span className="text-blue-400 font-medium">{activeTasks.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-400 flex items-center gap-1">
-                                            <CheckCircle className="w-3 h-3" />
-                                            Completed
-                                        </span>
-                                        <span className="text-green-400 font-medium">{completedTasks.length}</span>
-                                    </div>
-                                </div>
-
-                                {totalAssigned > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-white/10">
-                                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all"
-                                                style={{ width: `${(completedTasks.length / totalAssigned) * 100}%` }}
-                                            />
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 mt-1">
-                                            {Math.round((completedTasks.length / totalAssigned) * 100)}% completion rate
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {technicians.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                        <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No technicians available</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Main Content */}
-            <div className="space-y-6">
-                {/* Reports List */}
-                <div className="bg-[#0f172a]/50 backdrop-blur-xl rounded-xl border border-white/5 overflow-hidden">
-                    {/* Filters */}
-                    <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex gap-2">
-                            {['all', 'pending', 'in_progress'].map((f) => (
-                                <button
-                                    key={f}
-                                    onClick={() => setFilter(f)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === f
-                                        ? 'bg-primary text-white'
-                                        : 'bg-white/5 text-gray-400 hover:text-white'
-                                        }`}
-                                >
-                                    {f === 'all' ? 'Active' : f.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </button>
-                            ))}
-                        </div>
-                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-white">
-                            <Filter className="w-4 h-4" />
-                            Filter
-                        </button>
-                    </div>
-
-                    {/* Reports */}
-                    <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
-                        {filteredReports.length === 0 ? (
-                            <div className="p-8 text-center">
-                                <p className="text-gray-400">No reports to display</p>
-                            </div>
-                        ) : (
-                            filteredReports.map((report) => {
-                                const priority = getPriorityConfig(report.priority);
-
-                                return (
-                                    <div
-                                        key={report.id}
-                                        onClick={() => router.push(`/officer/reports/${report.id}`)}
-                                        className="p-4 flex items-start gap-4 cursor-pointer transition-all hover:bg-white/[0.05] group"
-                                    >
-                                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative group-hover:ring-2 ring-primary/50 transition-all">
+                                    <div className="flex items-start gap-4">
+                                        {/* Image Thumbnail */}
+                                        <div className="w-20 h-20 rounded-2xl bg-slate-100 overflow-hidden shrink-0 relative">
                                             {report.image_url ? (
-                                                <img src={report.image_url} alt="" className="w-full h-full object-cover" />
+                                                <img src={report.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <MapPin className="w-6 h-6 text-gray-600" />
+                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                    <MapPin className="w-8 h-8" />
+                                                </div>
+                                            )}
+                                            {(report.report_count || 1) > 1 && (
+                                                <div className="absolute top-1 right-1 bg-purple-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                                                    +{report.report_count}
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${priority.color} ${priority.bg}`}>
-                                                    {priority.label}
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0 py-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${priority.color} ${priority.bg}`}>
+                                                    {priority.label} Priority
                                                 </span>
-                                                {(report.report_count || 1) > 1 && (
-                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 flex items-center gap-1">
-                                                        <span className="material-symbols-outlined text-[12px]">content_copy</span>
-                                                        {report.report_count} reports
-                                                    </span>
-                                                )}
-                                                <span className="text-xs text-gray-500">#{report.id.slice(-6)}</span>
+                                                <span className="text-xs text-slate-400">{formatTimeAgo(report.created_at)}</span>
                                             </div>
-                                            <p className="text-white font-medium text-sm mb-1 line-clamp-1">{report.description}</p>
-                                            <p className="text-gray-400 text-xs flex items-center gap-1">
-                                                <MapPin className="w-3 h-3" />
-                                                {report.address.slice(0, 40)}...
-                                            </p>
-                                        </div>
 
-                                        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                                            <p className="text-xs text-gray-500">{formatTimeAgo(report.created_at)}</p>
-                                            {(report.status === 'pending' || report.status === 'in_progress') && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setReportToReject(report.id);
-                                                        setShowRejectModal(true);
-                                                    }}
-                                                    className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs rounded flex items-center gap-1 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    Reject
-                                                </button>
-                                            )}
-                                            <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-primary transition-colors" />
+                                            <h3 className="font-bold text-slate-800 text-base mb-1 truncate">{report.category}</h3>
+
+                                            <div className="flex items-center gap-1.5 text-slate-500 text-sm mb-3">
+                                                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                                <span className="truncate">{report.address}</span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${status.color} ${status.bg}`}>
+                                                    {status.label}
+                                                </span>
+
+                                                <div className="flex items-center gap-2">
+                                                    {(report.status === 'pending' || report.status === 'in_progress') && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setReportToReject(report.id);
+                                                                setShowRejectModal(true);
+                                                            }}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    )}
+                                                    <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                        <ChevronRight className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                );
-                            })
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* RIGHT COLUMN - Technicians & Activity (3 Cols) */}
+            <div className="lg:col-span-3 space-y-6">
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-bold text-slate-800">Technicians</h3>
+                        <button onClick={() => router.push('/officer/technicians')} className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors">
+                            <ArrowUpRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {technicians.slice(0, 5).map((tech) => (
+                            <div key={tech.id} className="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-xl transition-colors">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${tech.available ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                    {tech.name.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-bold text-slate-800 truncate">{tech.name}</h4>
+                                    <p className="text-xs text-slate-500 truncate">{tech.specialization}</p>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full ${tech.available ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button onClick={() => router.push('/officer/technicians')} className="w-full mt-6 py-2.5 text-xs font-semibold text-slate-500 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                        View All Technicians
+                    </button>
+                </div>
+
+                {/* Most Reported Widget (Simplistic) */}
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-slate-800 mb-4">Top Issues</h3>
+                    <div className="space-y-3">
+                        {stats.urgent > 0 && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Urgent</span>
+                                <div className="flex-1 mx-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-red-400 w-[70%] rounded-full"></div>
+                                </div>
+                                <span className="text-xs font-bold text-slate-800">{stats.urgent}</span>
+                            </div>
                         )}
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">Pending</span>
+                            <div className="flex-1 mx-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-400 w-[45%] rounded-full"></div>
+                            </div>
+                            <span className="text-xs font-bold text-slate-800">{stats.pending}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">Active</span>
+                            <div className="flex-1 mx-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-purple-400 w-[20%] rounded-full"></div>
+                            </div>
+                            <span className="text-xs font-bold text-slate-800">{stats.inProgress}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -466,25 +428,24 @@ export default function OfficerDashboard() {
             {showRejectModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                         onClick={() => !rejecting && setShowRejectModal(false)}
                     />
-                    <div className="relative bg-[#1e293b] rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6">
-                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <X className="w-6 h-6 text-red-400" />
+                    <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+                        <h3 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
                             Reject Report
                         </h3>
-                        <p className="text-gray-300 mb-4 text-sm">
-                            Please provide a reason for rejecting this report. The citizen will see this reason.
+                        <p className="text-slate-500 mb-4 text-sm">
+                            Please provide a reason. This will be visible to the citizen.
                         </p>
                         <textarea
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
-                            className="w-full bg-[#0f172a] border border-white/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-red-500 transition-colors h-32 resize-none"
-                            placeholder="e.g., Insufficient evidence, duplicate report, outside jurisdiction..."
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors h-32 resize-none text-sm"
+                            placeholder="Reason for rejection..."
                             disabled={rejecting}
                         />
-                        <div className="flex gap-3 mt-4">
+                        <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => {
                                     setShowRejectModal(false);
@@ -492,23 +453,16 @@ export default function OfficerDashboard() {
                                     setReportToReject(null);
                                 }}
                                 disabled={rejecting}
-                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-colors"
+                                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors text-sm"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleRejectReport}
                                 disabled={!rejectionReason.trim() || rejecting}
-                                className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
                             >
-                                {rejecting ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                                        Rejecting...
-                                    </>
-                                ) : (
-                                    'Reject'
-                                )}
+                                {rejecting ? 'Rejecting...' : 'Confirm Reject'}
                             </button>
                         </div>
                     </div>

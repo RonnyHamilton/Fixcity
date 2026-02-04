@@ -114,69 +114,78 @@ export async function POST(request: NextRequest) {
         console.log('  Coordinates:', `(${latitude}, ${longitude})`);
 
         // ---------------------------------------------------------
-        // 1. SAME USER CHECK (Spam Prevention) - UNCHANGED
+        // 1. SAME USER CHECK (Spam Prevention) - ACTIVE REPORTS ONLY
         // ---------------------------------------------------------
-        console.log('[SPAM CHECK] Checking if same user submitted recently...');
-        const { data: userRecentReports } = await supabase
+        console.log('[SPAM CHECK] Checking if same user has ACTIVE report at this location...');
+        const { data: userActiveReports } = await supabase
             .from('reports')
-            .select('id, parent_report_id, created_at, latitude, longitude')
+            .select('id, parent_report_id, created_at, latitude, longitude, category, status')
             .eq('user_id', data.user_id)
-            .eq('category', data.category)
+            .in('status', ['pending', 'in_progress'])  // ✅ ONLY ACTIVE REPORTS
             .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
-        const isSpam = userRecentReports?.some(existing => {
+        // Check for spam using normalized category + location (ACTIVE ONLY)
+        const isSpam = userActiveReports?.some(existing => {
+            const existingNormalizedCategory = normalizeCategory(existing.category);
+            if (existingNormalizedCategory !== normalizedCategory) return false;
+
             const dist = calculateGeoDistance(latitude, longitude, Number(existing.latitude), Number(existing.longitude));
             return dist < DUPLICATE_THRESHOLDS.MAX_DISTANCE_METERS;
         });
 
         if (isSpam) {
-            console.log('[SPAM CHECK] ❌ Same user spam detected');
+            console.log('[SPAM CHECK] ❌ Same user already has ACTIVE report at this location');
             return NextResponse.json({
-                message: "You have already reported this issue recently.",
+                message: "You've already reported this issue. It's currently being processed.",
                 is_spam: true,
                 created: false
             }, { status: 200 });
         }
-        console.log('[SPAM CHECK] ✅ No spam detected - different user or location');
+        console.log('[SPAM CHECK] ✅ No active report from this user at this location');
+
 
         // ---------------------------------------------------------
-        // 2. FETCH CANDIDATES (Global Cross-User Duplicate Check)
+        // 2. FETCH CANDIDATES (Global Cross-User Duplicate Check) - ACTIVE ONLY
         // ---------------------------------------------------------
-        console.log('[CROSS-USER DUPLICATE CHECK] Fetching canonical reports...');
+        console.log('[CROSS-USER DUPLICATE CHECK] Fetching ACTIVE canonical reports...');
 
         // ✅ SANITATION BUCKET: Query all sanitation-related categories at once
-        // This prevents missing matches when users submit "Sanitation", "Waste Management", "garbage", etc.
         const SANITATION_BUCKET = ['sanitation', 'waste', 'garbage', 'trash', 'litter'];
         const isSanitationFamily = SANITATION_BUCKET.some(k => normalizedCategory.includes(k));
 
         console.log('  Category (normalized):', normalizedCategory);
         console.log('  Is sanitation family?', isSanitationFamily);
-        console.log('  🔑 NOTE: No user_id filter - checking ALL users globally');
+        console.log('  🔑 STATUS FILTER: Only pending/in_progress (ACTIVE)');
 
         let candidates;
         let candidateError;
 
         if (isSanitationFamily) {
-            // For sanitation: fetch ALL sanitation-related categories
+            // For sanitation: fetch ALL sanitation-related ACTIVE canonical reports
             console.log('  Query type: SANITATION BUCKET (fetching all sanitation categories)');
             const result = await supabase
                 .from('reports')
                 .select('*')
-                .in('category', SANITATION_BUCKET) // ✅ Fetch all sanitation variants
+                .in('status', ['pending', 'in_progress'])  // ✅ ACTIVE ONLY
                 .is('parent_report_id', null);
-            candidates = result.data;
+            // Filter client-side for sanitation bucket (case-insensitive)
+            candidates = (result.data || []).filter(r =>
+                SANITATION_BUCKET.some(k => r.category.toLowerCase().includes(k))
+            );
             candidateError = result.error;
         } else {
-            // For other categories: exact category match
-            console.log('  Query type: EXACT MATCH (single category)');
+            // For other categories: case-insensitive category match, ACTIVE ONLY
+            console.log('  Query type: CASE-INSENSITIVE MATCH (ACTIVE ONLY)');
             const result = await supabase
                 .from('reports')
                 .select('*')
-                .eq('category', normalizedCategory) // ✅ Use normalized category for query
+                .in('status', ['pending', 'in_progress'])  // ✅ ACTIVE ONLY
+                .ilike('category', normalizedCategory)
                 .is('parent_report_id', null);
             candidates = result.data;
             candidateError = result.error;
         }
+
 
         if (candidateError) {
             console.error('[CROSS-USER DUPLICATE CHECK] ❌ Query error:', candidateError);
@@ -195,6 +204,7 @@ export async function POST(request: NextRequest) {
             description: normalizedDescription, // Use normalized for comparison
             latitude,
             longitude,
+            address: data.location, // Include address for fallback matching
             priority: 'low' as const,
         };
 
@@ -206,6 +216,51 @@ export async function POST(request: NextRequest) {
         );
 
         console.log(`[CROSS-USER DUPLICATE CHECK] ${duplicates.length > 0 ? `✅ MATCH FOUND - ${duplicates.length} duplicate(s)` : '❌ No matches found'}`);
+
+        // ---------------------------------------------------------
+        // 2b. CANONICAL FALLBACK (Locality-Aware)
+        // ---------------------------------------------------------
+        // If no canonical reports found, check if ALL reports might be children
+        // Fall back to oldest active report that matches by location
+        if (duplicates.length === 0 && (!candidates || candidates.length === 0)) {
+            console.log('[CANONICAL FALLBACK] No canonical reports found, checking for locality-aware fallback...');
+
+            const { data: fallbackCandidates } = await supabase
+                .from('reports')
+                .select('*')
+                .in('status', ['pending', 'in_progress'])  // ACTIVE ONLY
+                .ilike('category', normalizedCategory)
+                .order('created_at', { ascending: true });
+
+            if (fallbackCandidates && fallbackCandidates.length > 0) {
+                console.log(`  Found ${fallbackCandidates.length} potential fallback candidates`);
+
+                // Filter by locality: must match by distance OR exact address
+                const localMatch = fallbackCandidates.find(r => {
+                    const distance = calculateGeoDistance(latitude, longitude, Number(r.latitude), Number(r.longitude));
+                    const addressMatch = data.location && r.location
+                        ? data.location.trim().toLowerCase() === r.location.trim().toLowerCase()
+                        : false;
+
+                    // Use category-specific threshold
+                    const threshold = 200; // Use generous threshold for fallback
+                    const matches = distance < threshold || addressMatch;
+
+                    if (matches) {
+                        console.log(`  ✅ Locality match found: distance=${distance.toFixed(2)}m, addressMatch=${addressMatch}`);
+                    }
+                    return matches;
+                });
+
+                if (localMatch) {
+                    console.log(`  Using fallback canonical: ${localMatch.id} (created ${localMatch.created_at})`);
+                    // Treat this as a duplicate match
+                    duplicates.push(localMatch);
+                } else {
+                    console.log('  ❌ No locality match in fallback candidates');
+                }
+            }
+        }
 
         // ---------------------------------------------------------
         // 3. DETERMINE ACTION (The 7 Cases)
@@ -308,30 +363,66 @@ export async function POST(request: NextRequest) {
         if (action === 'merge_active') {
             console.log('[MERGE ACTIVE] Updating parent:', parentReport.id, '| Old Count:', parentReport.report_count, '| New Count:', newReportCount, '| Old Priority:', parentReport.priority, '| New Priority:', newPriority);
 
-            const { data: updated, error: updateError } = await supabase.from('reports').update({
-                report_count: newReportCount,
-                priority: newPriority, // Escalate priority
-                latest_reported_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }).eq('id', parentReport.id).select().single();
+            // Race condition guard: Retry with exponential backoff
+            let updated = null;
+            let lastError = null;
+            const MAX_RETRIES = 3;
 
-            if (updateError) {
-                console.error('[MERGE ACTIVE ERROR] Failed to update parent report:', updateError);
-                return NextResponse.json(
-                    { error: 'Failed to merge duplicate report', details: updateError.message },
-                    { status: 500 }
-                );
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    const backoffMs = 100 * Math.pow(2, attempt - 1); // 100ms, 200ms, 400ms
+                    console.log(`[MERGE ACTIVE RETRY] Attempt ${attempt + 1}/${MAX_RETRIES} after ${backoffMs}ms backoff...`);
+                    await new Promise(resolve => setTimeout(resolve, backoffMs));
+
+                    // Re-fetch parent to get latest state
+                    const { data: refetchedParent } = await supabase
+                        .from('reports')
+                        .select('*')
+                        .eq('id', parentReport.id)
+                        .single();
+
+                    if (refetchedParent) {
+                        parentReport = refetchedParent;
+                        // Recalculate with fresh data
+                        const freshCount = (parentReport.report_count || 1) + 1;
+                        const freshPriority = priorityFromCount(freshCount);
+                        console.log(`  Re-fetched parent: count=${freshCount}, priority=${freshPriority}`);
+                    }
+                }
+
+                const { data: updateResult, error: updateError } = await supabase.from('reports').update({
+                    report_count: (parentReport.report_count || 1) + 1,
+                    priority: priorityFromCount((parentReport.report_count || 1) + 1),
+                    latest_reported_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }).eq('id', parentReport.id).select().single();
+
+                if (!updateError) {
+                    updated = updateResult;
+                    console.log('[MERGE ACTIVE SUCCESS] Updated report on attempt', attempt + 1);
+                    break;
+                }
+
+                lastError = updateError;
+                console.warn(`[MERGE ACTIVE] Attempt ${attempt + 1} failed:`, updateError.message);
+
+                // If last attempt, throw error
+                if (attempt === MAX_RETRIES - 1) {
+                    console.error('[MERGE ACTIVE ERROR] All retries exhausted:', lastError);
+                    return NextResponse.json(
+                        { error: 'Failed to merge duplicate report', details: lastError.message },
+                        { status: 500 }
+                    );
+                }
             }
-
-            console.log('[MERGE ACTIVE SUCCESS] Updated report:', updated);
 
             return NextResponse.json({
                 id: parentReport.id,
                 created: false,
                 merged: true,
                 reopened: false,
-                priority: newPriority,
-                reportCount: newReportCount,
+                priority: updated?.priority || newPriority,
+                reportCount: updated?.report_count || newReportCount,
                 message: "This issue is already reported. Your report has been added to increase priority."
             }, { status: 201 });
         }
