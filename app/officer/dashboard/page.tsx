@@ -178,12 +178,7 @@ export default function OfficerDashboard() {
                     <div className="relative mb-4">
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[3px]">
                             <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                {/* Placeholder Avatar */}
-                                <img
-                                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Officer"
-                                    alt="Officer"
-                                    className="w-full h-full"
-                                />
+                                <Shield className="w-10 h-10 text-blue-600" />
                             </div>
                         </div>
                         <div className="absolute bottom-1 right-1 w-6 h-6 bg-emerald-400 border-4 border-white rounded-full"></div>
@@ -271,8 +266,8 @@ export default function OfficerDashboard() {
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${filter === f
-                                        ? 'bg-slate-900 text-white shadow-md'
-                                        : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
+                                    ? 'bg-slate-900 text-white shadow-md'
+                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
                                     }`}
                             >
                                 {f === 'all' ? 'All' : f.replace('_', ' ').charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}

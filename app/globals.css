@@ -315,11 +315,21 @@ body {
 }
 
 /* ===== FORM STYLES ===== */
+/* Dark theme autofill - only apply on dark backgrounds */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px var(--surface-dark) inset !important;
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Light theme autofill - default for login pages */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 30px var(--surface-dark) inset !important;
-  -webkit-text-fill-color: white !important;
+  -webkit-box-shadow: 0 0 0 30px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
@@ -354,4 +364,19 @@ input:-webkit-autofill:focus {
   height: 1.5rem;
   border-color: var(--primary);
   opacity: 0.5;
+}
+
+/* Scan animation for face verification */
+@keyframes scan {
+
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(152px);
+    opacity: 0.5;
+  }
 }

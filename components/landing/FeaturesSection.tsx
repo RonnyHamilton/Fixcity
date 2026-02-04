@@ -1,110 +1,121 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Camera, GitMerge, TrendingUp, UserCheck, Image as ImageIcon, Activity } from 'lucide-react';
+import { Camera, GitMerge, TrendingUp, Share2, UserCheck } from 'lucide-react';
 
 const features = [
     {
         title: 'Instant Issue Reporting',
-        description: 'Snap a photo, tag the location, and report issues in seconds with AI-assisted categorization.',
+        description: 'Snap a photo, tag the location and report issues in seconds with AI-assisted categorization.',
         icon: Camera,
-        color: 'text-blue-400',
-        bg: 'bg-blue-500/10',
-        border: 'group-hover:border-blue-500/50'
     },
     {
         title: 'Smart Duplicate Merge',
-        description: 'Our AI detects if an issue has already been reported and merges it to keep the system clean.',
+        description: 'Our AI detects if an issue has already been reported and merge it to keep the system clean.',
         icon: GitMerge,
-        color: 'text-purple-400',
-        bg: 'bg-purple-500/10',
-        border: 'group-hover:border-purple-500/50'
     },
     {
         title: 'Priority Auto Escalation',
         description: 'As more citizens report the same issue, the priority level automatically escalates.',
         icon: TrendingUp,
-        color: 'text-red-400',
-        bg: 'bg-red-500/10',
-        border: 'group-hover:border-red-500/50'
     },
     {
-        title: 'Officer Workflow',
-        description: 'Streamlined dashboard for officers to assign technicians and track resolution progress.',
+        title: 'AI Merges Assigns',
+        description: 'System detects duplicate & groups them drops them.',
+        icon: Share2,
+    },
+    {
+        title: 'Officer Execution',
+        description: 'Appointed those is have more intervenes and technician & alerts categorization.',
         icon: UserCheck,
-        color: 'text-emerald-400',
-        bg: 'bg-emerald-500/10',
-        border: 'group-hover:border-emerald-500/50'
-    },
-    {
-        title: 'Resolution Proof',
-        description: 'Technicians must upload photo proof and resolution notes to close an issue.',
-        icon: ImageIcon,
-        color: 'text-amber-400',
-        bg: 'bg-amber-500/10',
-        border: 'group-hover:border-amber-500/50'
-    },
-    {
-        title: 'Live Citizen Status',
-        description: 'Track your report status in real-time from Pending to In Progress to Resolved.',
-        icon: Activity,
-        color: 'text-cyan-400',
-        bg: 'bg-cyan-500/10',
-        border: 'group-hover:border-cyan-500/50'
     }
 ];
 
+const container = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1,
+            delayChildren: 0.3
+        }
+    }
+};
+
+const item = {
+    hidden: { opacity: 0, y: 30 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50 } }
+};
+
 export default function FeaturesSection() {
     return (
-        <section className="relative py-24 px-4 md:px-8 bg-[#0a0f16]">
+        <section className="relative py-24 px-4 bg-white/50">
             <div className="max-w-7xl mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="text-center mb-16"
-                >
-                    <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-                        Everything you need to fix a city faster.
-                    </h2>
-                    <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                <div className="text-center mb-16">
+                    <motion.h2
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="text-3xl md:text-5xl font-bold text-slate-900 mb-4"
+                    >
+                        Everything you need to fox a city faster.
+                    </motion.h2>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.1 }}
+                        className="text-slate-500 font-medium"
+                    >
                         Report. Merge duplicates. Escalate priority. Resolve with proof.
-                    </p>
+                    </motion.p>
+                </div>
+
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true, margin: "-100px" }}
+                    className="flex flex-col items-center gap-6"
+                >
+                    <div className="flex flex-wrap justify-center gap-6 w-full">
+                        {/* Top Row: 3 cards */}
+                        {features.slice(0, 3).map((feature, idx) => (
+                            <FeatureCard key={idx} feature={feature} />
+                        ))}
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-6 w-full">
+                        {/* Bottom Row: 2 cards */}
+                        {features.slice(3, 5).map((feature, idx) => (
+                            <FeatureCard key={idx + 3} feature={feature} />
+                        ))}
+                    </div>
                 </motion.div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {features.map((feature, idx) => (
-                        <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: idx * 0.1 }}
-                            className={`group relative p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl hover:-translate-y-2 transition-all duration-300 overflow-hidden ${feature.border}`}
-                        >
-                            {/* Hover Glow Background */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                            <div className="relative z-10 flex flex-col items-start gap-4">
-                                <div className={`p-4 rounded-xl ${feature.bg} ${feature.color} ring-1 ring-white/10`}>
-                                    <feature.icon className="w-8 h-8" />
-                                </div>
-
-                                <h3 className="text-xl font-semibold text-white group-hover:text-primary transition-colors">
-                                    {feature.title}
-                                </h3>
-
-                                <p className="text-gray-400 leading-relaxed text-sm">
-                                    {feature.description}
-                                </p>
-                            </div>
-
-                            {/* Decorative Corner Glow */}
-                            <div className={`absolute top-0 right-0 w-24 h-24 ${feature.bg} blur-2xl -mr-12 -mt-12 opacity-50`} />
-                        </motion.div>
-                    ))}
-                </div>
             </div>
         </section>
+    );
+}
+
+function FeatureCard({ feature }: { feature: any }) {
+    return (
+        <motion.div
+            variants={item}
+            whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+            className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 transition-all duration-300 w-full md:w-[350px] flex flex-col items-start text-left cursor-default group"
+        >
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <feature.icon className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">
+                {feature.title}
+            </h3>
+
+            <p className="text-slate-500 text-sm leading-relaxed">
+                {feature.description}
+            </p>
+        </motion.div>
     );
 }
