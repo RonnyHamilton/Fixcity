@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { FileText, CheckCircle, Clock, AlertCircle, Plus, TrendingUp, Eye, X, MapPin, Calendar, Tag, Trash2, Phone, BadgeCheck } from 'lucide-react';
 import { parseResolutionNotes } from '@/lib/resolution-utils';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/lib/store';
+import { translations } from '@/lib/translations';
 
 interface Report {
     id: string;
@@ -46,6 +48,10 @@ function DashboardContent() {
     const [isDeleting, setIsDeleting] = useState(false);
     // Technician details state
     const [assignedTechnician, setAssignedTechnician] = useState<any>(null);
+
+    // Language support
+    const { language } = useAuthStore();
+    const t = (key: string) => (translations[language] as any)?.[key] || (translations.en as any)[key] || key;
 
     // Auth guard - check UID from URL and fetch user from DB
     useEffect(() => {
@@ -225,9 +231,9 @@ function DashboardContent() {
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        if (days === 0) return 'Today';
-        if (days === 1) return 'Yesterday';
-        if (days < 7) return `${days} days ago`;
+        if (days === 0) return t('today');
+        if (days === 1) return t('yesterday');
+        if (days < 7) return `${days} ${t('daysAgo')}`;
         return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
@@ -237,10 +243,10 @@ function DashboardContent() {
             <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4 py-4">
                 <div>
                     <h1 className="text-slate-800 text-3xl md:text-4xl font-black leading-tight tracking-tight mb-2">
-                        Welcome back, <span className="text-blue-600">{currentUser?.name || 'User'}</span>
+                        {t('welcomeBack')} <span className="text-blue-600">{currentUser?.name || 'User'}</span>
                     </h1>
                     <p className="text-slate-500 text-lg">
-                        Track your contributions to a better city. Here's what needs attention today.
+                        {t('trackContributions')}
                     </p>
                 </div>
                 <Link
@@ -248,7 +254,7 @@ function DashboardContent() {
                     className="flex items-center justify-center gap-2 h-12 px-6 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-sm font-bold shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 transition-all active:scale-[0.98]"
                 >
                     <Plus className="w-5 h-5" />
-                    Report New Issue
+                    {t('reportNewIssue')}
                 </Link>
             </div>
 
@@ -260,7 +266,7 @@ function DashboardContent() {
                             <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
                                 <FileText className="w-5 h-5" />
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">Total Reports</p>
+                            <p className="text-sm font-semibold text-slate-500">{t('totalReports')}</p>
                         </div>
                         <p className="text-slate-800 text-4xl font-black">{stats.total}</p>
                     </div>
@@ -269,7 +275,7 @@ function DashboardContent() {
                             <div className="p-2 rounded-xl bg-green-50 text-green-600">
                                 <CheckCircle className="w-5 h-5" />
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">Resolved</p>
+                            <p className="text-sm font-semibold text-slate-500">{t('resolved')}</p>
                         </div>
                         <p className="text-slate-800 text-4xl font-black">{stats.resolved}</p>
                     </div>
@@ -278,7 +284,7 @@ function DashboardContent() {
                             <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
                                 <TrendingUp className="w-5 h-5" />
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">In Progress</p>
+                            <p className="text-sm font-semibold text-slate-500">{t('inProgress')}</p>
                         </div>
                         <p className="text-slate-800 text-4xl font-black">{stats.inProgress}</p>
                     </div>
@@ -287,7 +293,7 @@ function DashboardContent() {
                             <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
                                 <Clock className="w-5 h-5" />
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">Pending</p>
+                            <p className="text-sm font-semibold text-slate-500">{t('pending')}</p>
                         </div>
                         <p className="text-slate-800 text-4xl font-black">{stats.pending}</p>
                     </div>
@@ -305,16 +311,16 @@ function DashboardContent() {
                     <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-blue-50 flex items-center justify-center">
                         <FileText className="w-10 h-10 text-blue-600" />
                     </div>
-                    <h3 className="text-2xl font-bold text-slate-800 mb-3">No Reports Yet</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 mb-3">{t('noReportsYet')}</h3>
                     <p className="text-slate-500 mb-8 max-w-md mx-auto leading-relaxed">
-                        You haven&apos;t reported any issues yet. Help improve your community by reporting infrastructure problems nearby.
+                        {t('noReportsDescription')}
                     </p>
                     <Link
                         href={`/public/report?uid=${searchParams.get('uid')}`}
                         className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 active:scale-[0.98]"
                     >
                         <Plus className="w-5 h-5" />
-                        Report Your First Issue
+                        {t('reportFirstIssue')}
                     </Link>
                 </div>
             ) : (

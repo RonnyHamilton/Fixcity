@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { HelpCircle, MessageCircle, Book, Phone, Mail, ChevronRight, ExternalLink, Search, CheckCircle, AlertCircle, Clock, TrendingUp, X } from 'lucide-react';
+import { useAuthStore } from '@/lib/store';
+import { translations } from '@/lib/translations';
 
 const faqs = [
     {
@@ -121,12 +123,26 @@ export default function HelpPage() {
     const [selectedGuide, setSelectedGuide] = useState<typeof guides[0] | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Translation hook - using any for dynamic keys like FAQ
+    const { language } = useAuthStore();
+    const t = (key: string) => (translations[language] as any)?.[key] || (translations.en as any)[key] || key;
+
     const filteredGuides = guides.filter(guide =>
         guide.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         guide.desc.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredFaqs = faqs.filter(faq =>
+    // Dynamically generate FAQs from translations for current language
+    const translatedFaqs = [
+        { question: t('faqQ1') as string, answer: t('faqA1') as string },
+        { question: t('faqQ2') as string, answer: t('faqA2') as string },
+        { question: t('faqQ3') as string, answer: t('faqA3') as string },
+        { question: t('faqQ4') as string, answer: t('faqA4') as string },
+        { question: t('faqQ5') as string, answer: t('faqA5') as string },
+        { question: t('faqQ6') as string, answer: t('faqA6') as string },
+    ];
+
+    const filteredFaqs = translatedFaqs.filter(faq =>
         faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -135,9 +151,9 @@ export default function HelpPage() {
         <div className="px-4 sm:px-6 py-8 mx-auto w-full max-w-[1024px]">
             {/* Header */}
             <div className="text-center mb-12">
-                <h1 className="text-3xl md:text-4xl font-black text-slate-800 mb-4">How can we help?</h1>
+                <h1 className="text-3xl md:text-4xl font-black text-slate-800 mb-4">{t('howCanWeHelp')}</h1>
                 <p className="text-slate-500 max-w-xl mx-auto mb-8">
-                    Find answers to common questions or get in touch with our support team
+                    {t('findAnswers')}
                 </p>
 
                 {/* Search */}
@@ -145,7 +161,7 @@ export default function HelpPage() {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         className="w-full h-12 rounded-xl pl-12 pr-4 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white border border-slate-200 shadow-sm"
-                        placeholder="Search for help..."
+                        placeholder={t('searchForHelp')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -208,7 +224,7 @@ export default function HelpPage() {
                                 onClick={() => setSelectedGuide(null)}
                                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
                             >
-                                Got it
+                                {t('gotIt')}
                             </button>
                         </div>
                     </div>
@@ -218,7 +234,7 @@ export default function HelpPage() {
             {/* FAQ Section */}
             {(searchQuery === '' || filteredFaqs.length > 0) && (
                 <div className="mb-12">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-6">Frequently Asked Questions</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6">{t('faq')}</h2>
                     <div className="space-y-4">
                         {filteredFaqs.map((faq, index) => (
                             <details
@@ -240,14 +256,14 @@ export default function HelpPage() {
 
             {/* Contact Section */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
-                <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Still need help?</h2>
+                <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">{t('stillNeedHelp')}</h2>
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="text-center p-6 rounded-xl bg-slate-50 hover:bg-blue-50 transition-all border border-slate-100">
                         <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                             <Mail className="w-6 h-6" />
                         </div>
-                        <h3 className="text-slate-800 font-bold mb-2">Email Support</h3>
-                        <p className="text-slate-500 text-sm mb-4">We&apos;ll respond within 24 hours</p>
+                        <h3 className="text-slate-800 font-bold mb-2">{t('emailSupport')}</h3>
+                        <p className="text-slate-500 text-sm mb-4">{t('emailResponseTime')}</p>
                         <a href="mailto:support@fixcity.gov.in" className="text-blue-600 font-medium text-sm hover:underline">support@fixcity.gov.in</a>
                     </div>
 
@@ -255,8 +271,8 @@ export default function HelpPage() {
                         <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                             <Phone className="w-6 h-6" />
                         </div>
-                        <h3 className="text-slate-800 font-bold mb-2">Helpline</h3>
-                        <p className="text-slate-500 text-sm mb-4">Available Mon-Sat, 9AM-6PM</p>
+                        <h3 className="text-slate-800 font-bold mb-2">{t('helpline')}</h3>
+                        <p className="text-slate-500 text-sm mb-4">{t('helplineHours')}</p>
                         <a href="tel:1800-123-4567" className="text-blue-600 font-medium text-sm hover:underline">1800-123-4567</a>
                     </div>
                 </div>

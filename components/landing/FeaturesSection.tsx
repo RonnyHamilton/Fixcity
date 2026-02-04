@@ -49,23 +49,23 @@ const item = {
 
 export default function FeaturesSection() {
     return (
-        <section className="relative py-24 px-4 bg-white/50">
+        <section className="relative py-16 md:py-24 px-4 bg-white/50">
             <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-16">
+                <div className="text-center mb-10 md:mb-16">
                     <motion.h2
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-bold text-slate-900 mb-4"
+                        className="text-2xl sm:text-3xl md:text-5xl font-bold text-slate-900 mb-3 md:mb-4 px-4"
                     >
-                        Everything you need to fox a city faster.
+                        Everything you need to fix a city faster.
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: 0.1 }}
-                        className="text-slate-500 font-medium"
+                        className="text-slate-500 font-medium text-sm md:text-base px-4"
                     >
                         Report. Merge duplicates. Escalate priority. Resolve with proof.
                     </motion.p>
@@ -103,17 +103,17 @@ function FeatureCard({ feature }: { feature: any }) {
         <motion.div
             variants={item}
             whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
-            className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 transition-all duration-300 w-full md:w-[350px] flex flex-col items-start text-left cursor-default group"
+            className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-100 transition-all duration-300 w-full md:w-[350px] flex flex-col items-start text-left cursor-default group"
         >
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <feature.icon className="w-6 h-6" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
+                <feature.icon className="w-5 h-5 md:w-6 md:h-6" />
             </div>
 
-            <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 mb-2 md:mb-3 group-hover:text-blue-600 transition-colors">
                 {feature.title}
             </h3>
 
-            <p className="text-slate-500 text-sm leading-relaxed">
+            <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
                 {feature.description}
             </p>
         </motion.div>

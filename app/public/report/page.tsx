@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { classifyFromDataUrl, shouldAutoSelect, getConfidenceColor, ClassificationResult } from '@/lib/teachable-machine';
+import { useAuthStore } from '@/lib/store';
+import { translations } from '@/lib/translations';
 
 // Frontend Category IDs matching Teachable Machine model
 const CATEGORIES = [
@@ -33,6 +35,10 @@ export default function ReportIssuePage() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [currentUser, setCurrentUser] = useState<PublicUser | null>(null);
+
+    // Translation hook
+    const { language } = useAuthStore();
+    const t = (key: string) => (translations[language] as any)?.[key] || (translations.en as any)[key] || key;
 
     // Camera State
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -484,15 +490,15 @@ export default function ReportIssuePage() {
                     className="self-start flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors mb-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:bg-slate-100"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Back
+                    {t('back')}
                 </button>
                 <div className="flex flex-wrap items-center gap-4">
                     <h1 className="text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-800">
-                        Report an Issue
+                        {t('reportAnIssue')}
                     </h1>
                 </div>
                 <p className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl">
-                    Submit the details below to report a civic issue in your area.
+                    {t('reportFormDesc')}
                 </p>
             </div>
 
@@ -505,7 +511,7 @@ export default function ReportIssuePage() {
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold">1</div>
-                                <h2 className="text-xl font-bold text-slate-800">Evidence</h2>
+                                <h2 className="text-xl font-bold text-slate-800">{t('evidence')}</h2>
                             </div>
                         </div>
 
@@ -611,14 +617,14 @@ export default function ReportIssuePage() {
                                 className="flex items-center justify-center gap-2 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20"
                             >
                                 <Camera className="w-5 h-5" />
-                                Take Photo
+                                {t('takePhoto')}
                             </button>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className="flex items-center justify-center gap-2 py-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-700 hover:text-blue-700 font-bold transition-all"
                             >
                                 <ImagePlus className="w-5 h-5" />
-                                From Gallery
+                                {t('fromGallery')}
                             </button>
                         </div>
                     </section>
@@ -629,7 +635,7 @@ export default function ReportIssuePage() {
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold">2</div>
-                                <h2 className="text-xl font-bold text-slate-800">Location</h2>
+                                <h2 className="text-xl font-bold text-slate-800">{t('location')}</h2>
                             </div>
                             <button
                                 onClick={detectLocation}
@@ -639,12 +645,12 @@ export default function ReportIssuePage() {
                                 {detectingLocation ? (
                                     <>
                                         <Loader2 className="w-3 h-3 animate-spin" />
-                                        Locating...
+                                        {t('locating')}
                                     </>
                                 ) : (
                                     <>
                                         <MapPin className="w-3 h-3" />
-                                        Detect My Location
+                                        {t('detectMyLocation')}
                                     </>
                                 )}
                             </button>
@@ -683,13 +689,13 @@ export default function ReportIssuePage() {
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold">3</div>
-                                <h2 className="text-xl font-bold text-slate-800">Category</h2>
+                                <h2 className="text-xl font-bold text-slate-800">{t('selectCategory')}</h2>
                             </div>
                             {/* AI Detection Status */}
                             {isDetecting && (
                                 <div className="flex items-center gap-2 text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100 animate-pulse">
                                     <Sparkles className="w-4 h-4" />
-                                    <span className="text-xs font-bold">Detecting...</span>
+                                    <span className="text-xs font-bold">{t('detecting')}</span>
                                 </div>
                             )}
                             {detectionResult && !isDetecting && (
@@ -762,7 +768,7 @@ export default function ReportIssuePage() {
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold">4</div>
-                                <h2 className="text-xl font-bold text-slate-800">Description</h2>
+                                <h2 className="text-xl font-bold text-slate-800">{t('descriptionLabel')}</h2>
                             </div>
                         </div>
 
@@ -772,7 +778,7 @@ export default function ReportIssuePage() {
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     className="w-full h-full min-h-[200px] rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm resize-none leading-relaxed text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all"
-                                    placeholder="Describe the issue in detail. Be specific about the problem and its location..."
+                                    placeholder={t('describePlaceholder')}
                                 />
                                 <div className="absolute bottom-4 right-4 flex items-center gap-2 pointer-events-none">
                                     {description.length > 50 && (
@@ -804,7 +810,7 @@ export default function ReportIssuePage() {
                         onClick={() => router.back()}
                         className="w-full sm:w-auto px-10 h-14 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-base hover:bg-slate-50 hover:border-slate-300 transition-all"
                     >
-                        Cancel
+                        {t('cancel')}
                     </button>
                     <button
                         onClick={handleSubmit}
@@ -814,12 +820,12 @@ export default function ReportIssuePage() {
                         {loading ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                Processing...
+                                {t('submitting')}
                             </>
                         ) : (
                             <>
                                 <Check className="w-5 h-5" />
-                                Submit Report
+                                {t('submitReport')}
                             </>
                         )}
                     </button>

@@ -4,8 +4,10 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase, signOut } from '@/lib/supabase';
-import { Home, FileText, HelpCircle, AlertCircle, LogOut, Search, User, Zap, ChevronDown } from 'lucide-react';
+import { Home, FileText, HelpCircle, AlertCircle, LogOut, Search, User, Zap, ChevronDown, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuthStore } from '@/lib/store';
+import { translations, languageNames, type Language } from '@/lib/translations';
 
 interface PublicUser {
     id: string;
@@ -20,6 +22,11 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<PublicUser | null>(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
+    // Language from store
+    const { language, setLanguage } = useAuthStore();
+    const t = (key: string) => (translations[language] as any)?.[key] || (translations.en as any)[key] || key;
 
     // Auth check - uses UID from URL, not auth store
     useEffect(() => {
@@ -80,9 +87,9 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
     // Build URLs with uid preserved
     const uid = searchParams.get('uid');
     const navItems = [
-        { path: `/public/dashboard?uid=${uid}`, label: 'Dashboard', icon: Home },
-        { path: `/public/my-reports?uid=${uid}`, label: 'My Reports', icon: FileText },
-        { path: `/public/help?uid=${uid}`, label: 'Help', icon: HelpCircle },
+        { path: `/public/dashboard?uid=${uid}`, label: t('dashboard'), icon: Home },
+        { path: `/public/my-reports?uid=${uid}`, label: t('myReports'), icon: FileText },
+        { path: `/public/help?uid=${uid}`, label: t('help'), icon: HelpCircle },
     ];
 
     return (
@@ -147,7 +154,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                             <Search className="w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                             <input
                                 className="bg-transparent border-none text-sm text-slate-800 placeholder-slate-400 focus:ring-0 w-full ml-3 font-medium outline-none"
-                                placeholder="Search reports..."
+                                placeholder={t('searchReports')}
                                 onChange={(e) => handleSearch(e.target.value)}
                                 defaultValue={searchParams.get('q')?.toString()}
                             />
@@ -159,8 +166,40 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                             className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-5 rounded-full text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 active:scale-95"
                         >
                             <AlertCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Report Issue</span>
+                            <span className="hidden sm:inline">{t('reportIssue')}</span>
                         </Link>
+
+                        {/* Language Selector */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 text-sm font-semibold text-slate-600"
+                            >
+                                <Globe className="w-4 h-4" />
+                                <span className="hidden sm:block">{languageNames[language]}</span>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            {langDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setLangDropdownOpen(false)} />
+                                    <div className="absolute right-0 mt-2 w-40 py-2 bg-white rounded-2xl border border-slate-200 shadow-xl z-50">
+                                        {(Object.keys(languageNames) as Language[]).map((lang) => (
+                                            <button
+                                                key={lang}
+                                                onClick={() => {
+                                                    setLanguage(lang);
+                                                    setLangDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${language === lang ? 'bg-blue-50 text-blue-600' : 'text-slate-700 hover:bg-slate-50'}`}
+                                            >
+                                                {languageNames[lang]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
                         {/* Profile Dropdown */}
                         <div className="relative">
@@ -190,7 +229,7 @@ function PublicLayoutContent({ children }: { children: React.ReactNode }) {
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                                             >
                                                 <LogOut className="w-4 h-4" />
-                                                Sign Out
+                                                {t('logout')}
                                             </button>
                                         </div>
                                     </div>

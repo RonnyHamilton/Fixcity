@@ -6,6 +6,8 @@ import { FileText, Clock, CheckCircle, AlertCircle, ChevronRight, Plus, X, MapPi
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { parseResolutionNotes } from '@/lib/resolution-utils';
+import { useAuthStore } from '@/lib/store';
+import { translations } from '@/lib/translations';
 
 interface Report {
     id: string;
@@ -39,6 +41,10 @@ function MyReportsContent() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+
+    // Translation hook
+    const { language } = useAuthStore();
+    const t = (key: string) => (translations[language] as any)?.[key] || (translations.en as any)[key] || key;
 
     // Delete state
     const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
@@ -152,28 +158,28 @@ function MyReportsContent() {
                 bg: 'bg-amber-50',
                 border: 'border-amber-200',
                 icon: Clock,
-                label: 'Pending Review'
+                label: t('pendingReview')
             },
             in_progress: {
                 color: 'text-blue-600',
                 bg: 'bg-blue-50',
                 border: 'border-blue-200',
                 icon: TrendingUp,
-                label: 'In Progress'
+                label: t('inProgress')
             },
             resolved: {
                 color: 'text-green-600',
                 bg: 'bg-green-50',
                 border: 'border-green-200',
                 icon: CheckCircle,
-                label: 'Resolved'
+                label: t('resolved')
             },
             rejected: {
                 color: 'text-red-600',
                 bg: 'bg-red-50',
                 border: 'border-red-200',
                 icon: AlertCircle,
-                label: 'Rejected'
+                label: t('rejected')
             },
         };
         return configs[status];
@@ -181,10 +187,10 @@ function MyReportsContent() {
 
     const getPriorityBadge = (priority: Report['priority']) => {
         const badges = {
-            low: { color: 'bg-slate-500', text: 'Low' },
-            medium: { color: 'bg-yellow-500', text: 'Medium' },
-            high: { color: 'bg-orange-500', text: 'High' },
-            urgent: { color: 'bg-red-500', text: 'Urgent' },
+            low: { color: 'bg-slate-500', text: t('low') },
+            medium: { color: 'bg-yellow-500', text: t('medium') },
+            high: { color: 'bg-orange-500', text: t('high') },
+            urgent: { color: 'bg-red-500', text: t('urgent') },
         };
         return badges[priority];
     };
@@ -220,25 +226,25 @@ function MyReportsContent() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-800 mb-1">My Reports</h1>
-                    <p className="text-slate-500">Track the status of issues you&apos;ve reported</p>
+                    <h1 className="text-3xl font-black text-slate-800 mb-1">{t('myReports')}</h1>
+                    <p className="text-slate-500">{t('trackContributions')}</p>
                 </div>
                 <Link
                     href={`/public/report?uid=${searchParams.get('uid')}`}
                     className="flex items-center justify-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-bold shadow-lg transition-all"
                 >
                     <Plus className="w-4 h-4" />
-                    New Report
+                    {t('reportNewIssue')}
                 </Link>
             </div>
 
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                 {[
-                    { key: 'all', label: 'All' },
-                    { key: 'pending', label: 'Pending' },
-                    { key: 'in_progress', label: 'In Progress' },
-                    { key: 'resolved', label: 'Resolved' },
+                    { key: 'all', label: t('all') },
+                    { key: 'pending', label: t('pending') },
+                    { key: 'in_progress', label: t('inProgress') },
+                    { key: 'resolved', label: t('resolved') },
                 ].map((tab) => (
                     <button
                         key={tab.key}

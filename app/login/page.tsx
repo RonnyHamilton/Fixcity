@@ -81,20 +81,20 @@ export default function LoginSelectionPage() {
             </Link>
 
             {/* Main Content */}
-            <div className="relative z-10 w-full max-w-5xl px-4 py-12">
+            <div className="relative z-10 w-full max-w-5xl px-4 py-8 md:py-12">
 
                 {/* Header with Emblem and Logo */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
-                    className="flex items-center justify-center gap-2 mb-10"
+                    className="flex items-center justify-center gap-2 mb-6 md:mb-10"
                 >
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
-                            <Zap className="w-4 h-4 fill-current" />
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
+                            <Zap className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
                         </div>
-                        <span className="text-xl font-bold text-slate-800 tracking-tight">FixCity</span>
+                        <span className="text-lg md:text-xl font-bold text-slate-800 tracking-tight">FixCity</span>
                     </div>
                 </motion.div>
 
@@ -103,7 +103,7 @@ export default function LoginSelectionPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
-                    className="text-4xl md:text-5xl font-black text-center text-slate-900 mb-4 tracking-tight"
+                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-center text-slate-900 mb-3 md:mb-4 tracking-tight"
                 >
                     Choose your portal.
                 </motion.h1>
@@ -112,13 +112,13 @@ export default function LoginSelectionPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-slate-500 text-lg text-center max-w-lg mx-auto mb-12"
+                    className="text-slate-500 text-sm md:text-lg text-center max-w-lg mx-auto mb-8 md:mb-12 px-4"
                 >
                     Secure access points for citizens, officers, and technicians.
                 </motion.p>
 
                 {/* Portal Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
                     {portals.map((portal, idx) => (
                         <Link key={portal.title} href={portal.href} className="contents">
                             <motion.div
@@ -126,17 +126,19 @@ export default function LoginSelectionPage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5, delay: 0.3 + idx * 0.1 }}
                                 whileHover={{ y: -5, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-                                className={`group relative p-8 rounded-2xl bg-white border border-slate-100 shadow-lg shadow-slate-100/50 hover:shadow-xl transition-all cursor-pointer flex flex-col items-center text-center ${portal.borderColor}`}
+                                className={`group relative p-5 md:p-8 rounded-2xl bg-white border border-slate-100 shadow-lg shadow-slate-100/50 hover:shadow-xl transition-all cursor-pointer flex flex-row md:flex-col items-center md:text-center gap-4 md:gap-0 ${portal.borderColor}`}
                             >
                                 {/* Icon */}
-                                <div className={`w-20 h-20 rounded-full ${portal.bgColor} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-blue-100`}>
-                                    <portal.icon className={`w-10 h-10 ${portal.color}`} strokeWidth={1.5} />
+                                <div className={`w-14 h-14 md:w-20 md:h-20 shrink-0 rounded-full ${portal.bgColor} flex items-center justify-center md:mb-6 group-hover:scale-110 transition-transform duration-300 border border-blue-100`}>
+                                    <portal.icon className={`w-7 h-7 md:w-10 md:h-10 ${portal.color}`} strokeWidth={1.5} />
                                 </div>
 
-                                <h3 className="text-xl font-bold text-slate-800 mb-3">{portal.title}</h3>
-                                <p className="text-slate-500 text-sm leading-relaxed">
-                                    {portal.description}
-                                </p>
+                                <div className="flex-1 md:flex-none">
+                                    <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-1 md:mb-3">{portal.title}</h3>
+                                    <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
+                                        {portal.description}
+                                    </p>
+                                </div>
                             </motion.div>
                         </Link>
                     ))}

@@ -25,8 +25,51 @@ export async function GET(request: NextRequest) {
             query = query.eq('category', category);
         }
 
+        // For userId filter: Get BOTH user's own reports AND reports they contributed to via evidence
         if (userId) {
-            query = query.eq('user_id', userId);
+            // 1. Get user's own reports
+            const { data: ownReports, error: ownError } = await query.eq('user_id', userId);
+
+            if (ownError) {
+                console.error('[Reports API] Supabase error (own reports):', ownError);
+                return NextResponse.json(
+                    { error: 'Failed to fetch reports' },
+                    { status: 500 }
+                );
+            }
+
+            // 2. Get parent reports where user submitted evidence (merged contributions)
+            const { data: evidenceContributions } = await supabase
+                .from('report_evidence')
+                .select('canonical_report_id')
+                .eq('submitted_by_user_id', userId);
+
+            let contributedReports: any[] = [];
+            if (evidenceContributions && evidenceContributions.length > 0) {
+                const parentIds = [...new Set(evidenceContributions.map(e => e.canonical_report_id))];
+                const { data: parents } = await supabase
+                    .from('reports')
+                    .select('*')
+                    .in('id', parentIds);
+                contributedReports = parents || [];
+            }
+
+            // 3. Merge and deduplicate (user might have both own report AND evidence on same parent)
+            const ownIds = new Set((ownReports || []).map(r => r.id));
+            const mergedReports = [
+                ...(ownReports || []),
+                ...contributedReports.filter(r => !ownIds.has(r.id)).map(r => ({
+                    ...r,
+                    _isContribution: true // Mark as contribution for UI display
+                }))
+            ];
+
+            // Sort by created_at descending
+            mergedReports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            console.log(`[Reports API] Fetched ${ownReports?.length || 0} own reports + ${contributedReports.length} contributions for user ${userId}`);
+
+            return NextResponse.json({ reports: mergedReports });
         }
 
         const { data: reports, error } = await query;
