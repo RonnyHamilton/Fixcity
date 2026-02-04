@@ -81,7 +81,7 @@ export default function DuplicateLogicSection() {
                         initial={{ opacity: 0, scale: 0.8, rotate: -2 }}
                         whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
                         whileHover={{ scale: 1.05, rotate: 1 }}
-                        transition={{ duration: 0.6, type: 'spring' }}
+                        transition={{ duration: 0.6, type: 'spring' as const }}
                         className="relative bg-white rounded-3xl p-6 shadow-2xl shadow-slate-200/50 border border-slate-100 w-full max-w-md"
                     >
                         <div className="flex justify-between items-start mb-6">
