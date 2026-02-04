@@ -188,9 +188,9 @@ export async function PATCH(
 
         // **EMAIL NOTIFICATIONS FOR AUTHENTICATED USERS**
         try {
-            // Trigger email when technician is assigned
+            // Trigger email when technician is assigned (notify public user)
             if (updates.assigned_technician_id && updates.status === 'in_progress') {
-                // Call notify endpoint asynchronously (don't await - fire and forget)
+                // Notify public user that their report is being worked on
                 fetch(`${request.nextUrl.origin}/api/reports/notify`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -199,11 +199,21 @@ export async function PATCH(
                         event: 'assigned'
                     })
                 }).catch(err => console.error('Email notification error (assigned):', err));
+
+                // Notify technician that they have a new task
+                fetch(`${request.nextUrl.origin}/api/reports/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reportId: id,
+                        event: 'tech_assigned',
+                        technicianId: updates.assigned_technician_id
+                    })
+                }).catch(err => console.error('Email notification error (tech_assigned):', err));
             }
 
             // Trigger email when report is resolved
             if (updates.status === 'resolved' && currentReport.status !== 'resolved') {
-                // Call notify endpoint asynchronously (don't await - fire and forget)
                 fetch(`${request.nextUrl.origin}/api/reports/notify`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -212,6 +222,18 @@ export async function PATCH(
                         event: 'resolved'
                     })
                 }).catch(err => console.error('Email notification error (resolved):', err));
+            }
+
+            // Trigger email when report is rejected
+            if (updates.status === 'rejected' && currentReport.status !== 'rejected') {
+                fetch(`${request.nextUrl.origin}/api/reports/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reportId: id,
+                        event: 'rejected'
+                    })
+                }).catch(err => console.error('Email notification error (rejected):', err));
             }
         } catch (emailError) {
             // Don't fail the update if email notifications fail

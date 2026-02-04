@@ -335,6 +335,20 @@ export async function POST(request: NextRequest) {
             const { data: created, error } = await supabase.from('reports').insert([finalReport]).select().single();
             if (error) throw error;
 
+            // Notify officers about new report (fire and forget)
+            try {
+                fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/reports/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reportId: created.id,
+                        event: 'new_report'
+                    })
+                }).catch(err => console.error('Officer notification error:', err));
+            } catch (notifyError) {
+                console.error('Failed to trigger officer notification:', notifyError);
+            }
+
             return NextResponse.json({
                 ...created,
                 created: true,
