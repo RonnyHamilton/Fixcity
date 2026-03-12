@@ -6,6 +6,7 @@
     "email": "sharma@fixcity.gov.in",
     "password": "officer123",
     "area": "North District",
+    "role": "ward_officer",
     "face_data": "mock_face_001"
   },
   {
@@ -15,6 +16,7 @@
     "email": "khan@fixcity.gov.in",
     "password": "officer654",
     "area": "Central District",
+    "role": "taluk_officer",
     "face_data": "mock_face_005"
   },
   {
@@ -24,6 +26,7 @@
     "email": "commissioner@fixcity.gov.in",
     "password": "securepass",
     "area": "Headquarters",
+    "role": "ward_officer",
     "face_data": "mock_face_chief"
   }
 ]

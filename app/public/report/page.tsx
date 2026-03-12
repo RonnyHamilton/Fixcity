@@ -92,7 +92,8 @@ export default function ReportIssuePage() {
 
     // EXIF GPS State
     const [exifLocation, setExifLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [locationSource, setLocationSource] = useState<'exif' | 'gps' | null>(null); // which source is active
+    const [locationSource, setLocationSource] = useState<'exif' | 'gps' | null>(null);
+    const [detectedWard, setDetectedWard] = useState<{ ward_name: string; taluk_name: string } | null>(null);
 
     // Auto-detect category when image is uploaded
     useEffect(() => {
@@ -131,6 +132,26 @@ export default function ReportIssuePage() {
             return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         } catch {
             return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+    };
+
+    // Look up ward from /api/jurisdiction using bounding-box match
+    const lookupWard = async (lat: number, lng: number): Promise<void> => {
+        try {
+            const res = await fetch('/api/jurisdiction');
+            if (!res.ok) return;
+            const { wards, taluks } = await res.json();
+            const match = (wards as any[]).find(
+                (w) => lat >= w.min_lat && lat <= w.max_lat && lng >= w.min_lng && lng <= w.max_lng
+            );
+            if (match) {
+                const taluk = (taluks as any[]).find((t) => t.id === match.taluk_id);
+                setDetectedWard({ ward_name: match.name, taluk_name: taluk?.name ?? '' });
+            } else {
+                setDetectedWard(null);
+            }
+        } catch {
+            setDetectedWard(null);
         }
     };
 
@@ -285,6 +306,7 @@ export default function ReportIssuePage() {
             setLocationSource('exif');
             const addr = await reverseGeocode(gps.lat, gps.lng);
             setAddress(addr);
+            lookupWard(gps.lat, gps.lng);
         } else {
             // Attempt 2: OCR fallback — read GPS watermark text (GPS Map Camera etc.)
             const ocrGps = await extractGPSFromWatermark(file);
@@ -295,6 +317,7 @@ export default function ReportIssuePage() {
                 setLocationSource('exif');
                 const addr = await reverseGeocode(ocrGps.lat, ocrGps.lng);
                 setAddress(addr);
+                lookupWard(ocrGps.lat, ocrGps.lng);
             } else {
                 console.log('[GPS] No GPS found via EXIF or watermark OCR.');
             }
@@ -444,6 +467,7 @@ export default function ReportIssuePage() {
                 setLocationSource('gps');
                 const addr = await reverseGeocode(latitude, longitude);
                 setAddress(addr);
+                lookupWard(latitude, longitude); // real-time ward detection
                 setDetectingLocation(false);
             },
             () => {
@@ -849,6 +873,21 @@ export default function ReportIssuePage() {
                                         )}
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Jurisdiction badge — shown as soon as a location is detected */}
+                        {detectedWard && (
+                            <div className="mb-4 flex items-center gap-2 flex-wrap">
+                                <span className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm">
+                                    🏘 {detectedWard.ward_name}
+                                </span>
+                                {detectedWard.taluk_name && (
+                                    <span className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 shadow-sm">
+                                        🏛 {detectedWard.taluk_name}
+                                    </span>
+                                )}
+                                <span className="text-[11px] text-slate-400 italic">— authority auto-detected</span>
                             </div>
                         )}
 

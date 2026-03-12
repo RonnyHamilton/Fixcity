@@ -24,6 +24,17 @@ interface Report {
     report_count?: number;
     parent_report_id?: string | null;
     resolution_notes?: string;
+    // Jurisdiction fields
+    ward_id?: string | null;
+    taluk_id?: string | null;
+    department_id?: string | null;
+}
+
+interface WardInfo {
+    ward_id: string;
+    ward_name: string;
+    department_id: string | null;
+    department_name: string | null;
 }
 
 interface Technician {
@@ -40,6 +51,9 @@ export default function OfficerDashboard() {
     const router = useRouter();
     const [reports, setReports] = useState<Report[]>([]);
     const [technicians, setTechnicians] = useState<Technician[]>([]);
+    const [officerWards, setOfficerWards] = useState<WardInfo[]>([]);
+    const [deptMap, setDeptMap] = useState<Record<string, string>>({});
+    const [wardMap, setWardMap] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [rejecting, setRejecting] = useState(false);
@@ -53,19 +67,59 @@ export default function OfficerDashboard() {
 
     const fetchData = async () => {
         try {
-            const [reportsRes, techRes] = await Promise.all([
+            const [reportsRes, techRes, jurisdictionRes] = await Promise.all([
                 fetch('/api/reports'),
                 fetch('/api/technicians'),
+                fetch('/api/jurisdiction'),
             ]);
-
-            if (reportsRes.ok) {
-                const data = await reportsRes.json();
-                setReports(data.reports || []);
-            }
 
             if (techRes.ok) {
                 const data = await techRes.json();
                 setTechnicians(data.technicians || []);
+            }
+
+            // Build lookup maps for ward & department names
+            if (jurisdictionRes.ok) {
+                const jd = await jurisdictionRes.json();
+                const wm: Record<string, string> = {};
+                const dm: Record<string, string> = {};
+                (jd.wards || []).forEach((w: { id: string; name: string }) => { wm[w.id] = w.name; });
+                (jd.departments || []).forEach((d: { id: string; name: string }) => { dm[d.id] = d.name; });
+                setWardMap(wm);
+                setDeptMap(dm);
+            }
+
+            if (reportsRes.ok) {
+                const data = await reportsRes.json();
+                let allReports: Report[] = data.reports || [];
+
+                // Filter to officer's assigned wards (if any are assigned)
+                if (user?.id) {
+                    const { data: woRows } = await import('@/lib/supabase').then(m =>
+                        m.supabase.from('ward_officers')
+                            .select('ward_id, department_id, wards(name), departments(name)')
+                            .eq('officer_id', user.id)
+                    );
+
+                    if (woRows && woRows.length > 0) {
+                        const assignedWardIds = woRows.map((r: any) => r.ward_id).filter(Boolean);
+
+                        // Build officer ward info for display
+                        setOfficerWards(woRows.map((r: any) => ({
+                            ward_id:         r.ward_id,
+                            ward_name:       Array.isArray(r.wards) ? r.wards[0]?.name : r.wards?.name,
+                            department_id:   r.department_id,
+                            department_name: Array.isArray(r.departments) ? r.departments[0]?.name : r.departments?.name,
+                        })));
+
+                        // Show only reports in this officer's wards
+                        allReports = allReports.filter(
+                            (rep) => rep.ward_id == null || assignedWardIds.includes(rep.ward_id)
+                        );
+                    }
+                }
+
+                setReports(allReports);
             }
         } catch (error) {
             console.error('Failed to fetch data:', error);
@@ -173,21 +227,69 @@ export default function OfficerDashboard() {
 
             {/* LEFT COLUMN - Profile & Quick Stats (3 Cols) */}
             <div className="lg:col-span-3 space-y-6">
-                {/* Profile Card */}
-                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                    <div className="relative mb-4">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[3px]">
-                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                <Shield className="w-10 h-10 text-blue-600" />
+                {/* Jurisdiction Identity Card */}
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100">
+                    {/* Officer avatar + badge */}
+                    <div className="flex flex-col items-center text-center mb-5">
+                        <div className="relative mb-3">
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 p-[3px]">
+                                <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                                    <Shield className="w-9 h-9 text-indigo-600" />
+                                </div>
                             </div>
+                            <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-400 border-4 border-white rounded-full" />
                         </div>
-                        <div className="absolute bottom-1 right-1 w-6 h-6 bg-emerald-400 border-4 border-white rounded-full"></div>
+                        <h2 className="text-lg font-bold text-slate-800">{user?.name || 'Officer'}</h2>
+                        {/* Role badge */}
+                        <span className={`mt-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                            officerWards.length > 1
+                                ? 'bg-violet-100 text-violet-700'
+                                : 'bg-indigo-100 text-indigo-700'
+                        }`}>
+                            {officerWards.length > 1 ? '🏛 Taluk Officer' : '🏘 Ward Officer'}
+                        </span>
                     </div>
 
-                    <h2 className="text-xl font-bold text-slate-800">{user?.name || 'Officer'}</h2>
-                    <p className="text-sm text-slate-500 font-medium mb-6 uppercase tracking-wide">{user?.area || 'Municipal District'}</p>
+                    {/* Jurisdiction detail rows */}
+                    <div className="space-y-3">
+                        {officerWards.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center italic">No jurisdiction assigned yet</p>
+                        ) : officerWards.length === 1 ? (
+                            // Ward officer: single assignment
+                            <>
+                                <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                                    <MapPin className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase text-indigo-400 tracking-wide">Ward</p>
+                                        <p className="text-sm font-bold text-indigo-800">{officerWards[0].ward_name || wardMap[officerWards[0].ward_id]}</p>
+                                    </div>
+                                </div>
+                                {officerWards[0].department_name && (
+                                    <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                        <Wrench className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase text-amber-400 tracking-wide">Department</p>
+                                            <p className="text-sm font-bold text-amber-800">{officerWards[0].department_name}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            // Taluk officer: multiple ward assignments
+                            <>
+                                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide mb-1">Assigned Wards</p>
+                                {officerWards.map((w) => (
+                                    <div key={w.ward_id} className="flex items-center gap-2 px-3 py-2 bg-violet-50 rounded-lg border border-violet-100">
+                                        <MapPin className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                                        <span className="text-xs font-semibold text-violet-800">{w.ward_name || wardMap[w.ward_id]}</span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                    </div>
 
-                    <div className="grid grid-cols-3 gap-2 w-full pt-6 border-t border-slate-100">
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-2 w-full pt-5 mt-4 border-t border-slate-100">
                         <div className="flex flex-col items-center">
                             <span className="text-lg font-bold text-slate-800">{stats.pending}</span>
                             <span className="text-[10px] text-slate-400 font-bold uppercase">Pending</span>
@@ -203,7 +305,7 @@ export default function OfficerDashboard() {
                     </div>
                 </div>
 
-                {/* Mini Calendar / Status Widget (Visual Only filler for spacing if needed, or just specific stats) */}
+                {/* System Status */}
                 <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[24px] p-6 shadow-lg text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <Shield className="w-32 h-32" />
@@ -215,6 +317,7 @@ export default function OfficerDashboard() {
                         All systems active
                     </div>
                 </div>
+
             </div>
 
             {/* CENTER COLUMN - KPIs & Main Reports List (6 Cols) */}
@@ -329,6 +432,22 @@ export default function OfficerDashboard() {
                                                 <MapPin className="w-3.5 h-3.5 shrink-0" />
                                                 <span className="truncate">{report.address}</span>
                                             </div>
+
+                                            {/* Jurisdiction badge */}
+                                            {(report.ward_id || report.department_id) && (
+                                                <div className="flex items-center gap-1.5 mb-3">
+                                                    {report.ward_id && (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                            🏘 {wardMap[report.ward_id] ?? 'Ward'}
+                                                        </span>
+                                                    )}
+                                                    {report.department_id && (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                                                            🏢 {deptMap[report.department_id] ?? 'Dept'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             <div className="flex items-center justify-between">
                                                 <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${status.color} ${status.bg}`}>

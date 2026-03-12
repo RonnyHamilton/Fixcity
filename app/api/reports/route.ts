@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { ReportSchema } from '@/lib/schemas';
+import { getJurisdiction, getDepartmentId } from '@/lib/jurisdiction';
+
+// ─── Jurisdiction Enrichment Helper ──────────────────────────────────────────
+// Called AFTER a report is created or merged (never touches duplicate logic).
+async function enrichWithJurisdiction(
+    reportId: string,
+    lat: number,
+    lng: number,
+    category: string
+): Promise<void> {
+    try {
+        const [jurisdiction, department_id] = await Promise.all([
+            getJurisdiction(lat, lng, supabase),
+            getDepartmentId(category, supabase),
+        ]);
+
+        const updates: Record<string, string | null> = { department_id };
+        if (jurisdiction) {
+            updates.ward_id  = jurisdiction.ward_id;
+            updates.taluk_id = jurisdiction.taluk_id;
+        }
+
+        await supabase.from('reports').update(updates).eq('id', reportId);
+        console.log('[JURISDICTION] Enriched report', reportId, updates);
+    } catch (err) {
+        // Non-blocking — jurisdiction enrichment failure must never break submission
+        console.warn('[JURISDICTION] Enrichment failed (non-fatal):', err);
+    }
+}
 
 // GET - List all reports with optional filters
 export async function GET(request: NextRequest) {
@@ -377,6 +406,9 @@ export async function POST(request: NextRequest) {
 
             const { data: created, error } = await supabase.from('reports').insert([finalReport]).select().single();
             if (error) throw error;
+
+            // Jurisdiction enrichment (non-blocking, fire and forget)
+            enrichWithJurisdiction(created.id, latitude, longitude, normalizedCategory);
 
             // Notify officers about new report (fire and forget)
             try {
