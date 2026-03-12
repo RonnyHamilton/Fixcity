@@ -90,6 +90,10 @@ export default function ReportIssuePage() {
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [detectingLocation, setDetectingLocation] = useState(false);
 
+    // EXIF GPS State
+    const [exifLocation, setExifLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationSource, setLocationSource] = useState<'exif' | 'gps' | null>(null); // which source is active
+
     // Auto-detect category when image is uploaded
     useEffect(() => {
         if (!imagePreview) {
@@ -119,8 +123,133 @@ export default function ReportIssuePage() {
         detectCategory();
     }, [imagePreview]);
 
+    // Reverse geocode lat/lng to a human-readable address
+    const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await res.json();
+            return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        } catch {
+            return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+    };
+
+    // Extract GPS coordinates from EXIF metadata of an image file
+    const extractExifGPS = async (file: File): Promise<{ lat: number; lng: number } | null> => {
+        try {
+            const exifrLib = await import('exifr');
+
+            // Resolve the parse function (handles both named export and default.parse)
+            const parseFn = exifrLib.parse ?? (exifrLib as any).default?.parse;
+            if (!parseFn) {
+                console.warn('[EXIF] exifr.parse not found:', Object.keys(exifrLib));
+                return null;
+            }
+
+            // Read as ArrayBuffer — exifr is most reliable with this input type
+            const buffer = await file.arrayBuffer();
+
+            const data = await parseFn(buffer, {
+                gps: true,
+                tiff: true,
+                exif: false,
+                iptc: false,
+                xmp: false,
+                icc: false,
+                mergeOutput: true,
+                translateValues: true,
+                reviveValues: true,
+            });
+
+            console.log('[EXIF] parsed:', data);
+
+            if (data?.latitude != null && data?.longitude != null) {
+                return { lat: data.latitude, lng: data.longitude };
+            }
+
+            // Manual DMS fallback
+            if (data?.GPSLatitude != null && data?.GPSLongitude != null) {
+                const dms = (arr: number[]) => arr[0] + arr[1] / 60 + arr[2] / 3600;
+                const lat = dms(data.GPSLatitude) * (data.GPSLatitudeRef === 'S' ? -1 : 1);
+                const lng = dms(data.GPSLongitude) * (data.GPSLongitudeRef === 'W' ? -1 : 1);
+                console.log('[EXIF] DMS converted:', { lat, lng });
+                return { lat, lng };
+            }
+
+            console.log('[EXIF] No GPS coords in EXIF metadata.');
+            return null;
+        } catch (err) {
+            console.warn('[EXIF] Error:', err);
+            return null;
+        }
+    };
+
+    // OCR fallback: extract GPS coordinates from GPS Map Camera watermark text
+    // Crops the bottom 35% of the image (where the overlay is placed) for faster, more accurate OCR
+    const extractGPSFromWatermark = async (file: File): Promise<{ lat: number; lng: number } | null> => {
+        try {
+            console.log('[OCR] Starting watermark GPS extraction...');
+
+            // Load image onto a canvas and crop to bottom 35%
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = reject;
+                image.src = dataUrl;
+            });
+
+            // Crop to bottom 35% where GPS Map Camera puts the overlay
+            const cropHeight = Math.floor(img.height * 0.35);
+            const cropY = img.height - cropHeight;
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = cropHeight;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, cropY, img.width, cropHeight, 0, 0, img.width, cropHeight);
+            const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+            // Run Tesseract OCR on the cropped strip
+            const { createWorker } = await import('tesseract.js');
+            const worker = await createWorker('eng', 1, {
+                logger: () => {}, // suppress progress logs
+            });
+            const { data: { text } } = await worker.recognize(croppedDataUrl);
+            await worker.terminate();
+
+            console.log('[OCR] Extracted text:', text);
+
+            // Match patterns like:
+            //  "Lat 28.541449°"  "Long 77.182305°"
+            //  "Lat: 28.5414"    "Lng: 77.1823"
+            const latMatch = text.match(/[Ll]at[:\s]+([\-]?[\d]+\.?[\d]+)/i);
+            const lngMatch = text.match(/[Ll]o?ng?[:\s]+([\-]?[\d]+\.?[\d]+)/i);
+
+            if (latMatch && lngMatch) {
+                const lat = parseFloat(latMatch[1]);
+                const lng = parseFloat(lngMatch[1]);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    console.log('[OCR] GPS from watermark:', { lat, lng });
+                    return { lat, lng };
+                }
+            }
+
+            console.log('[OCR] No GPS pattern found in watermark text.');
+            return null;
+        } catch (err) {
+            console.warn('[OCR] Watermark extraction failed:', err);
+            return null;
+        }
+    };
+
     // Handle file selection (used by both click and drag-drop)
-    const processFile = (file: File) => {
+    const processFile = async (file: File) => {
         // Validate file type
         if (!file.type.startsWith('image/')) {
             setError('Please select an image file');
@@ -136,19 +265,47 @@ export default function ReportIssuePage() {
         setImageFile(file);
         setError('');
 
+        // Reset EXIF state for new upload
+        setExifLocation(null);
+        setLocationSource(null);
+
         // Create preview
         const reader = new FileReader();
         reader.onload = (e) => {
             setImagePreview(e.target?.result as string);
         };
         reader.readAsDataURL(file);
+
+        // Attempt 1: EXIF GPS extraction
+        const gps = await extractExifGPS(file);
+        if (gps) {
+            console.log('[GPS] Found via EXIF:', gps);
+            setExifLocation(gps);
+            setLocation({ lat: gps.lat, lng: gps.lng });
+            setLocationSource('exif');
+            const addr = await reverseGeocode(gps.lat, gps.lng);
+            setAddress(addr);
+        } else {
+            // Attempt 2: OCR fallback — read GPS watermark text (GPS Map Camera etc.)
+            const ocrGps = await extractGPSFromWatermark(file);
+            if (ocrGps) {
+                console.log('[GPS] Found via OCR watermark:', ocrGps);
+                setExifLocation(ocrGps);
+                setLocation({ lat: ocrGps.lat, lng: ocrGps.lng });
+                setLocationSource('exif');
+                const addr = await reverseGeocode(ocrGps.lat, ocrGps.lng);
+                setAddress(addr);
+            } else {
+                console.log('[GPS] No GPS found via EXIF or watermark OCR.');
+            }
+        }
     };
 
     // Handle file input change
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        processFile(file);
+        await processFile(file);
     };
 
     // Drag and drop handlers
@@ -169,14 +326,14 @@ export default function ReportIssuePage() {
         e.stopPropagation();
     };
 
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
 
         const file = e.dataTransfer.files?.[0];
         if (file) {
-            processFile(file);
+            await processFile(file);
         }
     };
 
@@ -255,10 +412,10 @@ export default function ReportIssuePage() {
     };
 
     // Handle camera input (for mobile devices using capture attribute)
-    const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        processFile(file);
+        await processFile(file);
     };
 
     // Cleanup camera on unmount
@@ -270,7 +427,7 @@ export default function ReportIssuePage() {
         };
     }, [cameraStream]);
 
-    // Detect location
+    // Detect location via device GPS
     const detectLocation = useCallback(() => {
         if (!navigator.geolocation) {
             setError('Geolocation is not supported by your browser');
@@ -284,21 +441,12 @@ export default function ReportIssuePage() {
             async (position) => {
                 const { latitude, longitude } = position.coords;
                 setLocation({ lat: latitude, lng: longitude });
-
-                // Reverse geocode to get address
-                try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                    );
-                    const data = await response.json();
-                    setAddress(data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-                } catch {
-                    setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-                }
-
+                setLocationSource('gps');
+                const addr = await reverseGeocode(latitude, longitude);
+                setAddress(addr);
                 setDetectingLocation(false);
             },
-            (err) => {
+            () => {
                 setError('Unable to detect location. Please enter manually.');
                 setDetectingLocation(false);
             },
@@ -361,7 +509,7 @@ export default function ReportIssuePage() {
             }
 
             // Check if this is a spam/duplicate submission by the same user
-            if (data.is_spam) {
+            if (data.is_spam || data.already_reported) {
                 setIsSpam(true);
                 setSuccessMessage(data.message || 'You have already reported this issue recently.');
                 setSuccess(true);
@@ -637,42 +785,92 @@ export default function ReportIssuePage() {
 
                     {/* Location */}
                     <section className="bg-white rounded-2xl p-6 md:p-8 border border-slate-100 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold">2</div>
                                 <h2 className="text-xl font-bold text-slate-800">{t('location')}</h2>
                             </div>
-                            <button
-                                onClick={detectLocation}
-                                disabled={detectingLocation}
-                                className="text-blue-600 text-xs font-bold flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 border border-blue-100 hover:border-blue-200"
-                            >
-                                {detectingLocation ? (
-                                    <>
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                        {t('locating')}
-                                    </>
-                                ) : (
-                                    <>
-                                        <MapPin className="w-3 h-3" />
-                                        {t('detectMyLocation')}
-                                    </>
-                                )}
-                            </button>
+                            {/* Show plain detect button only if no EXIF GPS is available */}
+                            {!exifLocation && (
+                                <button
+                                    onClick={detectLocation}
+                                    disabled={detectingLocation}
+                                    className="text-blue-600 text-xs font-bold flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 border border-blue-100 hover:border-blue-200"
+                                >
+                                    {detectingLocation ? (
+                                        <>
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            {t('locating')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MapPin className="w-3 h-3" />
+                                            {t('detectMyLocation')}
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
+
+                        {/* EXIF GPS detected badge + source choice */}
+                        {exifLocation && (
+                            <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                                <p className="text-sm text-green-700 font-semibold mb-3 flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-green-600" />
+                                    📍 Location detected from photo metadata
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            setLocation({ lat: exifLocation.lat, lng: exifLocation.lng });
+                                            setLocationSource('exif');
+                                            const addr = await reverseGeocode(exifLocation.lat, exifLocation.lng);
+                                            setAddress(addr);
+                                        }}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border ${locationSource === 'exif'
+                                            ? 'bg-green-600 text-white border-green-600 shadow-md'
+                                            : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}
+                                    >
+                                        📷 Use Photo Location
+                                    </button>
+                                    <button
+                                        onClick={detectLocation}
+                                        disabled={detectingLocation}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border disabled:opacity-50 ${locationSource === 'gps'
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                            : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'}`}
+                                    >
+                                        {detectingLocation ? (
+                                            <span className="flex items-center justify-center gap-1">
+                                                <Loader2 className="w-3 h-3 animate-spin" /> Locating...
+                                            </span>
+                                        ) : (
+                                            '📡 Use Current Location'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Map Placeholder */}
                         <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-slate-100 mb-4 border border-slate-200 group">
                             <div
                                 className="absolute inset-0 bg-gradient-to-br from-blue-50 to-slate-100 opacity-60 group-hover:opacity-80 transition-opacity duration-700"
                             />
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="bg-blue-600 p-3 rounded-full shadow-lg ring-4 ring-blue-100 animate-bounce">
+                                <div className={`p-3 rounded-full shadow-lg ring-4 animate-bounce ${locationSource === 'exif' ? 'bg-green-600 ring-green-100' : 'bg-blue-600 ring-blue-100'}`}>
                                     <MapPin className="w-6 h-6 text-white" />
                                 </div>
                             </div>
                             {location && (
                                 <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-mono text-slate-700 border border-slate-200 shadow-sm">
                                     {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                                    {locationSource === 'exif' && (
+                                        <span className="ml-2 text-green-600 font-bold">· Photo GPS</span>
+                                    )}
+                                    {locationSource === 'gps' && (
+                                        <span className="ml-2 text-blue-600 font-bold">· Device GPS</span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -684,6 +882,7 @@ export default function ReportIssuePage() {
                             placeholder="Enter street address or landmark"
                         />
                     </section>
+
                 </div>
 
                 {/* Right Column - Category & Description */}

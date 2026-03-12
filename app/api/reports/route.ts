@@ -401,6 +401,34 @@ export async function POST(request: NextRequest) {
         }
 
         // HANDLE MERGING (Cases 2-6)
+        // ---------------------------------------------------------
+        // SAME-USER DUPLICATE EVIDENCE CHECK
+        // Prevent the same user from incrementing count on a report
+        // they already own or have already submitted evidence for.
+        // ---------------------------------------------------------
+        const isOriginalReporter = parentReport.user_id === data.user_id;
+
+        // Check if this user already submitted evidence for this canonical report
+        const { data: existingEvidence } = await supabase
+            .from('report_evidence')
+            .select('id')
+            .eq('canonical_report_id', parentReport.id)
+            .eq('submitted_by_user_id', data.user_id)
+            .limit(1);
+
+        const hasAlreadyContributed = isOriginalReporter || (existingEvidence && existingEvidence.length > 0);
+
+        if (hasAlreadyContributed) {
+            console.log('[DUPLICATE USER CHECK] ❌ User has already reported or contributed to this issue. Skipping count increment.');
+            return NextResponse.json({
+                id: parentReport.id,
+                created: false,
+                merged: false,
+                already_reported: true,
+                message: "You've already reported this issue. It's currently being processed."
+            }, { status: 200 });
+        }
+
         // Universal step: Insert Evidence
         console.log('[EVIDENCE INSERT] Parent ID:', parentReport.id, '| User:', data.user_id);
         const { error: evidenceError } = await supabase.from('report_evidence').insert([{
