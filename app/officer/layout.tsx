@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
-import { LayoutDashboard, FileText, Users, BarChart3, LogOut, Bell, Search, Settings, User, MessageCircle, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, BarChart3, Map, LogOut, Bell, Search, Settings, User, MessageCircle, Menu, X } from 'lucide-react';
 
 export default function OfficerLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -64,10 +64,11 @@ export default function OfficerLayout({ children }: { children: React.ReactNode 
     }
 
     const navItems = [
-        { href: '/officer/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { href: '/officer/reports', icon: FileText, label: 'All Reports' },
-        { href: '/officer/technicians', icon: Users, label: 'Technicians' },
-        { href: '/officer/analytics', icon: BarChart3, label: 'Analytics' },
+        { href: '/officer/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+        { href: '/officer/reports',    icon: FileText,        label: 'All Reports' },
+        { href: '/officer/map',        icon: Map,             label: 'Issue Map' },
+        { href: '/officer/technicians',icon: Users,           label: 'Technicians' },
+        { href: '/officer/analytics',  icon: BarChart3,       label: 'Analytics' },
     ];
 
     // Unread count
