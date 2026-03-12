@@ -3,6 +3,13 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
     try {
+        // Auth check: require admin secret
+        const body = await request.json().catch(() => ({}));
+        const adminSecret = process.env.ADMIN_SECRET || 'fixcity-admin-2026';
+        if (body.secret !== adminSecret) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { error } = await supabase
             .from('reports')
             .delete()

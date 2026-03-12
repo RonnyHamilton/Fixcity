@@ -14,11 +14,10 @@ export interface AIDetectionResult {
 // Mapping from Teachable Machine "Class X" to FixCity categories
 const TM_CLASS_MAP: Record<string, FixCityCategory> = {
     "Class 1": "pothole",
-    "Class 2": "street_light",
+    "Class 2": "streetlight",
     "Class 3": "sanitation",
-    "Class 4": "graffiti",
+    "Class 4": "water_pipes",
     "Class 5": "street_dogs",
-    "Class 6": "e_waste"
 };
 
 export function useOfflineAIDetection() {
@@ -107,7 +106,7 @@ export function useOfflineAIDetection() {
                 } else {
                     // Check if raw label matches a category id directly
                     const validCategories: FixCityCategory[] = [
-                        "pothole", "street_light", "sanitation", "graffiti", "street_dogs", "e_waste", "other"
+                        "pothole", "streetlight", "sanitation", "street_dogs", "water_pipes", "other"
                     ];
                     if (validCategories.includes(rawLabel as any)) {
                         category = rawLabel as FixCityCategory;

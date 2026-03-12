@@ -1,10 +1,9 @@
 export type FixCityCategory =
     | "pothole"
-    | "street_light"
+    | "streetlight"
     | "sanitation"
-    | "graffiti"
     | "street_dogs"
-    | "e_waste"
+    | "water_pipes"
     | "other";
 
 const CATEGORY_LABELS: Record<Exclude<FixCityCategory, "other">, string[]> = {
@@ -24,16 +23,15 @@ const CATEGORY_LABELS: Record<Exclude<FixCityCategory, "other">, string[]> = {
         "litter on road",
     ],
     pothole: ["pothole on road", "damaged road pothole", "road crack pothole"],
-    street_light: [
+    streetlight: [
         "broken street light",
         "street light not working",
         "damaged lamp post",
     ],
-    graffiti: ["graffiti on wall", "spray paint graffiti", "vandalism on wall"],
-    e_waste: [
-        "electronic waste dump",
-        "discarded electronics",
-        "old computer parts trash",
+    water_pipes: [
+        "broken water pipe",
+        "water leak on road",
+        "damaged water pipeline",
     ],
 };
 
@@ -65,11 +63,10 @@ export function getLabelCategory(label: string): FixCityCategory | null {
 export function calculateCategoryScores(labels: string[], scores: number[]) {
     const categoryScores: Record<FixCityCategory, number> = {
         pothole: 0,
-        street_light: 0,
+        streetlight: 0,
         sanitation: 0,
-        graffiti: 0,
         street_dogs: 0,
-        e_waste: 0,
+        water_pipes: 0,
         other: 0,
     };
 
@@ -131,10 +128,9 @@ export function generateDescription(category: FixCityCategory, caption?: string)
     const templates: Record<FixCityCategory, string> = {
         sanitation: "Garbage/waste is visible at this location. Cleaning is required to maintain hygiene.",
         pothole: "A pothole/road damage is visible and may cause inconvenience or accidents.",
-        street_light: "The street light appears damaged or not functioning and needs repair.",
-        graffiti: "Graffiti/vandalism is visible on public property and needs cleaning or repainting.",
+        streetlight: "The street light appears damaged or not functioning and needs repair.",
         street_dogs: "Street dogs are present in the area and may cause disturbance or safety concerns.",
-        e_waste: "Electronic waste appears to be dumped in the open and needs proper disposal.",
+        water_pipes: "Water pipe damage or leak detected at this location. Repair is needed.",
         other: "Issue detected but could not be categorized reliably. Please describe the issue."
     };
 

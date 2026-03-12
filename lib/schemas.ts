@@ -18,10 +18,8 @@ export const ReportSchema = z.object({
     user_name: z.string().min(2, "Name must be at least 2 characters").max(100),
     user_phone: z.string().optional(),
     category: z.enum([
-        'pothole', 'streetlight', 'sanitation', 'graffiti',
-        'street_dogs', 'e_waste', 'other',
-        // Legacy/Fallback for compatibility if needed (optional)
-        'street_light', 'garbage', 'water', 'electricity'
+        'pothole', 'streetlight', 'sanitation',
+        'street_dogs', 'water_pipes', 'other'
     ]),
     description: z.string()
         .min(10, "Description must be at least 10 characters")

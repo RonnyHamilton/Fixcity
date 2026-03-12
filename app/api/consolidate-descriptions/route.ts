@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { consolidateDescriptions, type ReportDescription } from '@/lib/gemini-consolidate';
+import { consolidateDescriptions, type ReportDescription } from '@/lib/hf-consolidate';
 
 export async function POST(request: NextRequest) {
     try {

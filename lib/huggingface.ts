@@ -2,17 +2,13 @@ import { HfInference } from '@huggingface/inference';
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
-// Categories for civic issues
+// Categories for civic issues - aligned with canonical FixCity taxonomy
 const CIVIC_CATEGORIES = [
     'pothole',
-    'garbage',
-    'e-waste',
     'streetlight',
-    'graffiti',
-    'broken_sidewalk',
-    'fallen_tree',
-    'water_leak',
-    'sewage',
+    'sanitation',
+    'street_dogs',
+    'water_pipes',
     'other'
 ] as const;
 
@@ -27,21 +23,14 @@ const CATEGORY_MAPPINGS: Record<string, CivicCategory> = {
     'asphalt': 'pothole',
     'crack': 'pothole',
 
-    // Garbage related
-    'garbage': 'garbage',
-    'trash': 'garbage',
-    'litter': 'garbage',
-    'waste': 'garbage',
-    'rubbish': 'garbage',
-    'dump': 'garbage',
-    'debris': 'garbage',
-
-    // E-waste related
-    'electronic': 'e-waste',
-    'computer': 'e-waste',
-    'monitor': 'e-waste',
-    'television': 'e-waste',
-    'appliance': 'e-waste',
+    // Sanitation related
+    'garbage': 'sanitation',
+    'trash': 'sanitation',
+    'litter': 'sanitation',
+    'waste': 'sanitation',
+    'rubbish': 'sanitation',
+    'dump': 'sanitation',
+    'debris': 'sanitation',
 
     // Streetlight related
     'lamp': 'streetlight',
@@ -49,32 +38,18 @@ const CATEGORY_MAPPINGS: Record<string, CivicCategory> = {
     'street light': 'streetlight',
     'pole': 'streetlight',
 
-    // Graffiti related
-    'graffiti': 'graffiti',
-    'vandalism': 'graffiti',
-    'paint': 'graffiti',
-    'spray': 'graffiti',
+    // Street dogs related
+    'dog': 'street_dogs',
+    'dogs': 'street_dogs',
+    'stray': 'street_dogs',
+    'animal': 'street_dogs',
 
-    // Sidewalk related
-    'sidewalk': 'broken_sidewalk',
-    'pavement': 'broken_sidewalk',
-    'walkway': 'broken_sidewalk',
-
-    // Tree related
-    'tree': 'fallen_tree',
-    'branch': 'fallen_tree',
-    'wood': 'fallen_tree',
-
-    // Water related
-    'water': 'water_leak',
-    'pipe': 'water_leak',
-    'flood': 'water_leak',
-    'puddle': 'water_leak',
-
-    // Sewage related
-    'sewage': 'sewage',
-    'drain': 'sewage',
-    'manhole': 'sewage',
+    // Water pipes related
+    'water': 'water_pipes',
+    'pipe': 'water_pipes',
+    'flood': 'water_pipes',
+    'puddle': 'water_pipes',
+    'leak': 'water_pipes',
 };
 
 interface ClassificationResult {
@@ -138,14 +113,10 @@ export async function classifyImage(imageData: Blob | ArrayBuffer): Promise<Clas
 function generateDescription(category: CivicCategory, labels: Array<{ label: string; score: number }>): string {
     const descriptions: Record<CivicCategory, string> = {
         pothole: 'Road damage detected. This appears to be a pothole or road surface issue that may pose a hazard to vehicles and pedestrians.',
-        garbage: 'Garbage or litter accumulation detected. This area requires sanitation attention and cleanup.',
-        'e-waste': 'Electronic waste detected. Proper e-waste disposal is required to prevent environmental contamination.',
         streetlight: 'Street lighting issue detected. This may affect visibility and public safety during night hours.',
-        graffiti: 'Graffiti or vandalism detected. Surface cleaning or repainting may be required.',
-        broken_sidewalk: 'Sidewalk damage detected. This may pose a tripping hazard for pedestrians.',
-        fallen_tree: 'Fallen tree or branches detected. This may be blocking pathways or posing a safety risk.',
-        water_leak: 'Water leak or flooding detected. This may indicate pipe damage or drainage issues.',
-        sewage: 'Drainage or sewage issue detected. This may require immediate attention to prevent health hazards.',
+        sanitation: 'Garbage or litter accumulation detected. This area requires sanitation attention and cleanup.',
+        street_dogs: 'Street dogs detected in the area. This may cause disturbance or safety concerns for residents.',
+        water_pipes: 'Water pipe damage or leak detected. This may indicate pipe damage or drainage issues.',
         other: 'Issue detected but unable to automatically categorize. Please provide additional details.',
     };
 

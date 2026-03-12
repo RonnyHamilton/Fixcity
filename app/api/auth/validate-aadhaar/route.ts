@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             message: 'OTP generated. Please check your screen.',
-            otp: generatedOtp, // Sending OTP back to client for demo display
+            // ⚠️ DEMO ONLY: OTP sent to client for hackathon demo.
+            // In production, remove this and send via SMS/WhatsApp only.
+            otp: generatedOtp,
         });
     } catch (error) {
         console.error('Validate Aadhaar error:', error);

@@ -326,6 +326,11 @@ export default function ReportIssuePage() {
             return;
         }
 
+        if (!location) {
+            setError('Please detect your location using the GPS button');
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -658,8 +663,7 @@ export default function ReportIssuePage() {
                         {/* Map Placeholder */}
                         <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-slate-100 mb-4 border border-slate-200 group">
                             <div
-                                className="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-80 transition-opacity duration-700"
-                                style={{ backgroundImage: `url('https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${location?.lng || 77.209},${location?.lat || 28.614},12,0/400x200?access_token=pk.placeholder')` }}
+                                className="absolute inset-0 bg-gradient-to-br from-blue-50 to-slate-100 opacity-60 group-hover:opacity-80 transition-opacity duration-700"
                             />
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="bg-blue-600 p-3 rounded-full shadow-lg ring-4 ring-blue-100 animate-bounce">

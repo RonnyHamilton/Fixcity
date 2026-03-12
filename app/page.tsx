@@ -12,7 +12,21 @@ import DuplicateLogicSection from '@/components/landing/DuplicateLogicSection';
 import CTAFooter from '@/components/landing/CTAFooter';
 
 export default function LandingPage() {
-  const [stats, setStats] = useState({ fixedToday: 124, loading: false });
+  const [stats, setStats] = useState({ fixedToday: 0, loading: true });
+
+  // Fetch real stats from API
+  useEffect(() => {
+    fetch('/api/stats/landing')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          setStats({ fixedToday: data.fixedToday || 0, loading: false });
+        } else {
+          setStats({ fixedToday: 0, loading: false });
+        }
+      })
+      .catch(() => setStats({ fixedToday: 0, loading: false }));
+  }, []);
 
   // Animation Variants
   const containerVariants = {
@@ -95,7 +109,7 @@ export default function LandingPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
               </span>
-              {stats.fixedToday} issues resolved today
+              {stats.loading ? '...' : stats.fixedToday} issues resolved today
             </motion.div>
 
             <motion.h1 variants={itemVariants} className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.1] mb-4 md:mb-6">
