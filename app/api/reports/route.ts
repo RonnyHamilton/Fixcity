@@ -128,12 +128,20 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
 
+        console.log('[REPORT SUBMIT] Incoming body keys:', Object.keys(body));
+        console.log('[REPORT SUBMIT] category:', body.category, 'priority:', body.priority);
+        console.log('[REPORT SUBMIT] lat:', body.latitude, typeof body.latitude, 'lng:', body.longitude, typeof body.longitude);
+        console.log('[REPORT SUBMIT] image_url type:', typeof body.image_url, 'length:', body.image_url?.length);
+
         // Strict Input Validation via Zod
         const result = ReportSchema.safeParse(body);
 
         if (!result.success) {
+            const fieldErrors = result.error.flatten().fieldErrors;
+            console.error('[REPORT SUBMIT] Validation FAILED:', JSON.stringify(fieldErrors, null, 2));
+            console.error('[REPORT SUBMIT] Full errors:', JSON.stringify(result.error.issues, null, 2));
             return NextResponse.json(
-                { error: 'Validation failed', details: result.error.flatten().fieldErrors },
+                { error: 'Validation failed', details: fieldErrors },
                 { status: 400 }
             );
         }
@@ -396,7 +404,7 @@ export async function POST(request: NextRequest) {
                 longitude,
                 image_url: data.image_url || null,
                 status: 'pending',
-                priority: 'low',
+                priority: data.priority || 'low',
                 report_count: 1,
                 parent_report_id: null,
                 created_at: new Date().toISOString(),

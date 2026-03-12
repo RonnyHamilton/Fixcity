@@ -86,6 +86,7 @@ export default function ReportIssuePage() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [category, setCategory] = useState('');
     const [description, setDescription] = useState('');
+    const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
     const [address, setAddress] = useState('');
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [detectingLocation, setDetectingLocation] = useState(false);
@@ -518,6 +519,7 @@ export default function ReportIssuePage() {
                     user_phone: undefined, // Phone not collected anymore
                     category,
                     description,
+                    priority: severity,
                     image_url: imageUrl,
                     latitude: location?.lat,
                     longitude: location?.lng,
@@ -528,7 +530,15 @@ export default function ReportIssuePage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Failed to submit report');
+                if (data.details) {
+                    // Show specific field errors
+                    const fieldErrors = Object.entries(data.details)
+                        .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+                        .join(' | ');
+                    setError(`${data.error}: ${fieldErrors}`);
+                } else {
+                    setError(data.error || 'Failed to submit report');
+                }
                 return;
             }
 
@@ -1030,6 +1040,37 @@ export default function ReportIssuePage() {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* Severity */}
+                    <section className="bg-white rounded-2xl p-6 md:p-8 border border-slate-100 shadow-sm">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 border border-red-100 text-red-600 font-bold">5</div>
+                            <h2 className="text-xl font-bold text-slate-800">Severity</h2>
+                        </div>
+                        <p className="text-sm text-slate-500 mb-4">How severe is this issue? This helps officers prioritise response.</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {[
+                                { id: 'low' as const,    label: 'Low',    emoji: '🟢', desc: 'Minor nuisance',     border: 'border-green-200',  bg: 'bg-green-50',  ring: 'ring-green-500/20',  text: 'text-green-700' },
+                                { id: 'medium' as const, label: 'Medium', emoji: '🟡', desc: 'Needs attention',     border: 'border-yellow-200', bg: 'bg-yellow-50', ring: 'ring-yellow-500/20', text: 'text-yellow-700' },
+                                { id: 'high' as const,   label: 'High',   emoji: '🟠', desc: 'Significant hazard',  border: 'border-orange-200', bg: 'bg-orange-50', ring: 'ring-orange-500/20', text: 'text-orange-700' },
+                                { id: 'urgent' as const, label: 'Urgent', emoji: '🔴', desc: 'Immediate danger',    border: 'border-red-200',    bg: 'bg-red-50',    ring: 'ring-red-500/20',    text: 'text-red-700' },
+                            ].map((s) => (
+                                <button
+                                    key={s.id}
+                                    onClick={() => setSeverity(s.id)}
+                                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 ${
+                                        severity === s.id
+                                            ? `${s.border} ${s.bg} ring-4 ${s.ring} shadow-md`
+                                            : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200'
+                                    }`}
+                                >
+                                    <span className="text-2xl">{s.emoji}</span>
+                                    <span className={`text-sm font-bold ${severity === s.id ? s.text : 'text-slate-600'}`}>{s.label}</span>
+                                    <span className="text-[10px] text-slate-400 leading-tight text-center">{s.desc}</span>
+                                </button>
+                            ))}
                         </div>
                     </section>
                 </div>

@@ -16,7 +16,7 @@ export const LoginSchema = z.object({
 export const ReportSchema = z.object({
     user_id: z.string().min(1, "User ID is required"),
     user_name: z.string().min(2, "Name must be at least 2 characters").max(100),
-    user_phone: z.string().optional(),
+    user_phone: z.string().nullish(),
     category: z.enum([
         'pothole', 'streetlight', 'sanitation',
         'street_dogs', 'water_pipes', 'other'
@@ -24,11 +24,12 @@ export const ReportSchema = z.object({
     description: z.string()
         .min(10, "Description must be at least 10 characters")
         .max(1000, "Description is too long")
-        .refine(val => !/[<>]/g.test(val), "HTML tags are not allowed"), // Basic storage XSS prevention
+        .refine(val => !/[<>]/g.test(val), "HTML tags are not allowed"),
     location: z.string().max(200, "Address is too long"),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
-    image_url: z.string().url("Invalid Image URL").optional().or(z.literal('')),
+    latitude: z.coerce.number().min(-90).max(90),
+    longitude: z.coerce.number().min(-180).max(180),
+    image_url: z.string().nullish().or(z.literal('')),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).nullish(),
 });
 
 // Chat Message Schema
