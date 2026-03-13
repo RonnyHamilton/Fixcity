@@ -2,18 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, BarChart3, Map, Shield, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, LogOut, X, Crown, FileText } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
-interface SidebarProps {
+interface AdminSidebarProps {
     sidebarOpen: boolean;
     setSidebarOpen: (open: boolean) => void;
-    isTalukOfficer: boolean;
 }
 
-export default function Sidebar({ sidebarOpen, setSidebarOpen, isTalukOfficer }: SidebarProps) {
+export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps) {
     const { logout } = useAuthStore();
     const router = useRouter();
     const pathname = usePathname();
@@ -24,14 +23,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, isTalukOfficer }:
     };
 
     const navItems = [
-        { href: '/officer/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { href: '/officer/reports', icon: FileText, label: 'Reports' },
-        ...(isTalukOfficer ? [
-            { href: '/officer/ward-officers', icon: Shield, label: 'Ward Officers' },
-            { href: '/officer/map', icon: Map, label: 'Issue Map' },
-        ] : []),
-        { href: '/officer/technicians', icon: Users, label: 'Technicians' },
-        { href: '/officer/analytics', icon: BarChart3, label: 'Analytics' },
+        { href: '/super-admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { href: '/super-admin/reports', icon: FileText, label: 'Reports' },
+        { href: '/super-admin/taluk-officers', icon: Shield, label: 'Taluk Officers' },
+        { href: '/super-admin/ward-officers', icon: Users, label: 'Ward Officers' },
     ];
 
     return (
@@ -48,12 +43,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, isTalukOfficer }:
 
             <div className="p-6 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 text-blue-600 flex items-center justify-center bg-blue-50 rounded-xl">
-                        <span className="material-symbols-outlined text-2xl font-bold p-1">shield</span>
+                    <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-amber-500/20">
+                        <Crown className="w-5 h-5 text-white" />
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-slate-900 tracking-tight">FixCity</h2>
-                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-0.5">Officer Portal</p>
+                        <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest mt-0.5">Super Admin</p>
                     </div>
                 </div>
             </div>
@@ -71,11 +66,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, isTalukOfficer }:
                                     className={clsx(
                                         "flex items-center gap-3 px-4 py-3 rounded-[12px] transition-all group",
                                         isActive
-                                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                                            : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                                            ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                                            : "text-slate-500 hover:text-amber-600 hover:bg-amber-50"
                                     )}
                                 >
-                                    <Icon className={clsx("w-5 h-5 transition-colors", isActive ? "text-white" : "group-hover:text-blue-600")} strokeWidth={isActive ? 2.5 : 2} />
+                                    <Icon className={clsx("w-5 h-5 transition-colors", isActive ? "text-white" : "group-hover:text-amber-600")} strokeWidth={isActive ? 2.5 : 2} />
                                     <span className={clsx("font-medium", isActive ? "font-semibold" : "")}>{item.label}</span>
                                 </Link>
                             </li>

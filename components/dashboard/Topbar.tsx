@@ -57,7 +57,7 @@ export default function Topbar({ setSidebarOpen }: TopbarProps) {
                             <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white translate-x-1" />
                         )}
                     </button>
-                    
+
                     <button className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm hover:shadow transition-all group overflow-hidden">
                         <img src="https://ui-avatars.com/api/?name=Officer&background=e0e7ff&color=4f46e5&rounded=true&bold=true" alt="User Profile" className="w-full h-full object-cover" />
                     </button>

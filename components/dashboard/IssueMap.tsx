@@ -9,15 +9,15 @@ import 'leaflet/dist/leaflet.css';
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
 const PRIORITY_COLORS: Record<string, string> = {
     urgent: '#ef4444',
-    high:   '#f97316',
+    high: '#f97316',
     medium: '#eab308',
-    low:    '#22c55e',
+    low: '#22c55e',
 };
 
 function makeIcon(color: string) {
@@ -31,9 +31,9 @@ function makeIcon(color: string) {
             transform: rotate(-45deg);
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         "></div>`,
-        iconSize:   [24, 24],
+        iconSize: [24, 24],
         iconAnchor: [12, 24],
-        popupAnchor:[0, -28],
+        popupAnchor: [0, -28],
     });
 }
 

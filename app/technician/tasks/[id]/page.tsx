@@ -20,7 +20,7 @@ interface Task {
     address: string;
     latitude: number;
     longitude: number;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id: string;
     assigned_officer_id: string;
@@ -48,6 +48,10 @@ export default function TaskResolvePage() {
     const [resolutionNotes, setResolutionNotes] = useState('');
     const [proofImage, setProofImage] = useState<File | null>(null);
     const [proofPreview, setProofPreview] = useState<string | null>(null);
+
+    // Pending image state for accept/retake flow
+    const [pendingImage, setPendingImage] = useState<File | null>(null);
+    const [pendingPreview, setPendingPreview] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTask();
@@ -78,14 +82,35 @@ export default function TaskResolvePage() {
             return;
         }
 
-        setProofImage(file);
+        // Store in pending state — user must explicitly accept
+        setPendingImage(file);
         setError('');
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            setProofPreview(e.target?.result as string);
+            setPendingPreview(e.target?.result as string);
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleAcceptImage = () => {
+        if (pendingImage && pendingPreview) {
+            setProofImage(pendingImage);
+            setProofPreview(pendingPreview);
+            setPendingImage(null);
+            setPendingPreview(null);
+        }
+    };
+
+    const handleRetakeImage = () => {
+        setPendingImage(null);
+        setPendingPreview(null);
+        // Reset file input so the same file can be re-selected
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        // Re-open file picker
+        setTimeout(() => fileInputRef.current?.click(), 100);
     };
 
     const handleSubmit = async () => {
@@ -342,9 +367,43 @@ export default function TaskResolvePage() {
                                 <label className="text-sm font-bold text-slate-700 mb-2 block">
                                     {t.proofOfCompletion} *
                                 </label>
-                                {proofPreview ? (
-                                    <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                                {pendingPreview ? (
+                                    /* Pending Image — awaiting user acceptance */
+                                    <div className="space-y-3">
+                                        <div className="relative rounded-xl overflow-hidden border-2 border-amber-400 shadow-md">
+                                            <img src={pendingPreview} alt="Pending proof" className="w-full h-48 object-cover" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                                            <div className="absolute bottom-0 inset-x-0 p-3 flex items-center justify-center">
+                                                <span className="text-xs font-bold text-white bg-amber-500/90 backdrop-blur-sm px-3 py-1 rounded-full">
+                                                    Review Photo
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={handleRetakeImage}
+                                                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                Retake
+                                            </button>
+                                            <button
+                                                onClick={handleAcceptImage}
+                                                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                                            >
+                                                <Check className="w-4 h-4" />
+                                                Accept
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : proofPreview ? (
+                                    /* Accepted Image */
+                                    <div className="relative rounded-xl overflow-hidden border-2 border-emerald-400 shadow-sm">
                                         <img src={proofPreview} alt="Proof" className="w-full h-48 object-cover" />
+                                        <div className="absolute bottom-0 inset-x-0 p-2 bg-emerald-50/90 backdrop-blur-sm border-t border-emerald-200 flex items-center justify-center gap-1.5">
+                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span className="text-xs font-bold text-emerald-700">Photo Accepted</span>
+                                        </div>
                                         <button
                                             onClick={() => {
                                                 setProofImage(null);
@@ -356,6 +415,7 @@ export default function TaskResolvePage() {
                                         </button>
                                     </div>
                                 ) : (
+                                    /* Initial Upload Prompt */
                                     <div
                                         onClick={() => fileInputRef.current?.click()}
                                         className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-8 transition-all hover:bg-slate-100 hover:border-emerald-400 cursor-pointer group"

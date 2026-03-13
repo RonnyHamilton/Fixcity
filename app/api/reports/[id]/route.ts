@@ -12,7 +12,7 @@ interface Report {
     latitude: number;
     longitude: number;
     address: string;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     assigned_officer_id?: string;
@@ -73,8 +73,9 @@ export async function PATCH(
         const ALLOWED_TRANSITIONS: Record<string, string[]> = {
             pending: ['in_progress', 'rejected'],
             in_progress: ['resolved', 'rejected'],
-            resolved: [], // Cannot transition from resolved (unless reopened by duplicate logic)
+            resolved: ['closed', 'in_progress'], // closed = citizen accepts, in_progress = citizen rejects/reopens
             rejected: [], // Cannot transition from rejected
+            closed: [], // Terminal state — citizen verified
         };
 
         // Fetch current report state
@@ -127,6 +128,24 @@ export async function PATCH(
                         { status: 400 }
                     );
                 }
+            }
+
+            // Rule 4: closed (citizen accepts) requires citizen_accepted flag
+            if (updates.status === 'closed') {
+                updates.citizen_accepted = true;
+                updates.citizen_reviewed_at = new Date().toISOString();
+            }
+
+            // Rule 5: reopened from resolved (citizen rejects) requires citizen_feedback
+            if (updates.status === 'in_progress' && currentReport.status === 'resolved') {
+                if (!updates.citizen_feedback) {
+                    return NextResponse.json(
+                        { error: 'Citizen must provide feedback when rejecting a resolution' },
+                        { status: 400 }
+                    );
+                }
+                updates.citizen_accepted = false;
+                updates.citizen_reviewed_at = new Date().toISOString();
             }
 
             // Rule 3: rejected requires rejection reason

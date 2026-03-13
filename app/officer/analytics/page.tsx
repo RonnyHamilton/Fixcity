@@ -11,7 +11,7 @@ interface Report {
     user_id: string;
     user_name: string;
     category: string;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     created_at: string;
     updated_at?: string;

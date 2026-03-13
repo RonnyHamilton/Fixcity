@@ -14,7 +14,7 @@ interface Report {
     description: string;
     image_url: string;
     address: string;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     created_at: string;

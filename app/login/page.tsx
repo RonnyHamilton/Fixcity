@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { User, Shield, Wrench, Lock, CheckCircle, Zap, ArrowLeft } from 'lucide-react';
+import { User, Shield, Wrench, Lock, CheckCircle, Zap, ArrowLeft, Crown } from 'lucide-react';
 
 const portals = [
     {
@@ -31,6 +31,15 @@ const portals = [
         color: 'text-blue-500',
         bgColor: 'bg-blue-50',
         borderColor: 'hover:border-blue-200',
+    },
+    {
+        title: 'Super Admin',
+        description: 'Manage officers, oversee operations, and system administration.',
+        icon: Crown,
+        href: '/login/super-admin',
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-50',
+        borderColor: 'hover:border-amber-200',
     },
 ];
 
@@ -118,7 +127,7 @@ export default function LoginSelectionPage() {
                 </motion.p>
 
                 {/* Portal Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
                     {portals.map((portal, idx) => (
                         <Link key={portal.title} href={portal.href} className="contents">
                             <motion.div

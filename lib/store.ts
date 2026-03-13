@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type UserRole = 'public' | 'officer' | 'technician' | null;
+export type UserRole = 'public' | 'officer' | 'technician' | 'super_admin' | null;
 
 interface User {
     id: string;
@@ -107,7 +107,7 @@ interface Report {
     latitude: number;
     longitude: number;
     address: string;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assignedTechnicianId?: string;
     createdAt: string;

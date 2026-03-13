@@ -18,10 +18,12 @@ interface Report {
     address: string;
     latitude: number;
     longitude: number;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     resolution_notes?: string;
+    citizen_accepted?: boolean;
+    citizen_feedback?: string;
     created_at: string;
     updated_at: string;
     parent_report_id?: string | null;
@@ -53,6 +55,10 @@ function MyReportsContent() {
 
     // Technician details state
     const [assignedTechnician, setAssignedTechnician] = useState<any>(null);
+    // Citizen review state
+    const [reviewMode, setReviewMode] = useState<'none' | 'accept' | 'reject'>('none');
+    const [citizenFeedback, setCitizenFeedback] = useState('');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     // Fetch user from URL params
     useEffect(() => {
@@ -181,8 +187,45 @@ function MyReportsContent() {
                 icon: AlertCircle,
                 label: t('rejected')
             },
+            closed: {
+                color: 'text-emerald-700',
+                bg: 'bg-emerald-50',
+                border: 'border-emerald-200',
+                icon: CheckCircle,
+                label: 'Verified & Closed'
+            },
         };
         return configs[status];
+    };
+
+    const handleCitizenReview = async (action: 'accept' | 'reject') => {
+        if (!selectedReport) return;
+        if (action === 'reject' && !citizenFeedback.trim()) return;
+        setIsSubmittingReview(true);
+        try {
+            const body: any = {
+                status: action === 'accept' ? 'closed' : 'in_progress',
+            };
+            if (citizenFeedback.trim()) {
+                body.citizen_feedback = citizenFeedback.trim();
+            }
+            const response = await fetch(`/api/reports/${selectedReport.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setReports(prev => prev.map(r => r.id === selectedReport.id ? { ...r, ...data.report } : r));
+                setSelectedReport({ ...selectedReport, ...data.report });
+                setReviewMode('none');
+                setCitizenFeedback('');
+            }
+        } catch (error) {
+            console.error('Review submission error:', error);
+        } finally {
+            setIsSubmittingReview(false);
+        }
     };
 
     const getPriorityBadge = (priority: Report['priority']) => {
@@ -507,8 +550,100 @@ function MyReportsContent() {
                                         );
                                     })()}
 
+                                    {/* Citizen Verified Badge (closed reports) */}
+                                    {selectedReport.status === 'closed' && (
+                                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                                                <div>
+                                                    <p className="text-sm font-bold text-emerald-700">Resolution Verified</p>
+                                                    <p className="text-xs text-emerald-600">You confirmed this issue as fixed</p>
+                                                </div>
+                                            </div>
+                                            {selectedReport.citizen_feedback && (
+                                                <p className="text-slate-600 text-sm mt-2 bg-white p-3 rounded-lg border border-emerald-100">
+                                                    &ldquo;{selectedReport.citizen_feedback}&rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Citizen Accept/Reject Actions */}
+                                    {selectedReport.status === 'resolved' && !selectedReport.citizen_accepted && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
+                                            <div className="flex items-start gap-3">
+                                                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                                                <div>
+                                                    <p className="text-sm font-bold text-blue-800">Review Resolution</p>
+                                                    <p className="text-xs text-blue-600 mt-0.5">Has this issue been properly fixed?</p>
+                                                </div>
+                                            </div>
+
+                                            {reviewMode === 'none' && (
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={() => setReviewMode('reject')}
+                                                        className="flex-1 py-2.5 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold transition-all flex items-center justify-center gap-2 text-sm"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                        Issue Persists
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setReviewMode('accept')}
+                                                        className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                                                    >
+                                                        <CheckCircle className="w-4 h-4" />
+                                                        Accept Fix
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {reviewMode === 'accept' && (
+                                                <div className="space-y-3">
+                                                    <textarea
+                                                        value={citizenFeedback}
+                                                        onChange={(e) => setCitizenFeedback(e.target.value)}
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none h-20 resize-none placeholder:text-slate-400 text-sm"
+                                                        placeholder="Optional: Share your experience..."
+                                                    />
+                                                    <div className="flex gap-3">
+                                                        <button onClick={() => { setReviewMode('none'); setCitizenFeedback(''); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all text-sm">Cancel</button>
+                                                        <button
+                                                            onClick={() => handleCitizenReview('accept')}
+                                                            disabled={isSubmittingReview}
+                                                            className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                                                        >
+                                                            {isSubmittingReview ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle className="w-4 h-4" />Confirm Fix</>}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {reviewMode === 'reject' && (
+                                                <div className="space-y-3">
+                                                    <textarea
+                                                        value={citizenFeedback}
+                                                        onChange={(e) => setCitizenFeedback(e.target.value)}
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-700 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none h-24 resize-none placeholder:text-slate-400 text-sm"
+                                                        placeholder="Required: Describe what's still wrong..."
+                                                    />
+                                                    <div className="flex gap-3">
+                                                        <button onClick={() => { setReviewMode('none'); setCitizenFeedback(''); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all text-sm">Cancel</button>
+                                                        <button
+                                                            onClick={() => handleCitizenReview('reject')}
+                                                            disabled={isSubmittingReview || !citizenFeedback.trim()}
+                                                            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            {isSubmittingReview ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><AlertCircle className="w-4 h-4" />Reopen Issue</>}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Technician Contact Card */}
-                                    {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved') && (
+                                    {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved' || selectedReport.status === 'closed') && (
                                         <div className="mt-4 p-1 rounded-2xl bg-gradient-to-r from-blue-100 to-indigo-100">
                                             <div className="bg-white rounded-xl p-4">
                                                 <div className="flex items-center gap-2 mb-3">
@@ -542,7 +677,7 @@ function MyReportsContent() {
 
                                 <div className="mt-8 flex gap-3">
                                     <button
-                                        onClick={() => setSelectedReport(null)}
+                                        onClick={() => { setSelectedReport(null); setReviewMode('none'); setCitizenFeedback(''); }}
                                         className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
                                     >
                                         Close

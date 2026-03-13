@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status');
         const category = searchParams.get('category');
         const userId = searchParams.get('userId');
+        const wardId = searchParams.get('ward_id');
+        const talukId = searchParams.get('taluk_id');
 
         // Start building query
         let query = supabase
@@ -52,6 +54,14 @@ export async function GET(request: NextRequest) {
 
         if (category) {
             query = query.eq('category', category);
+        }
+
+        if (wardId) {
+            query = query.eq('ward_id', wardId);
+        }
+
+        if (talukId) {
+            query = query.eq('taluk_id', talukId);
         }
 
         // For userId filter: Get BOTH user's own reports AND reports they contributed to via evidence

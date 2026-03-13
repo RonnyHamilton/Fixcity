@@ -35,7 +35,7 @@ export default function TechnicianCard({ name, specialization, activeTasks, avai
                     </div>
                 </div>
             </div>
-            
+
             <div className="text-right">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg text-xs font-semibold text-slate-700">
                     <Activity className="w-3.5 h-3.5 text-blue-500" />

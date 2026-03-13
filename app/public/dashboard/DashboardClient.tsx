@@ -18,12 +18,14 @@ interface Report {
     address: string;
     latitude: number;
     longitude: number;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     created_at: string;
     updated_at: string;
     resolution_notes?: string;
     assigned_technician_id?: string;
+    citizen_accepted?: boolean;
+    citizen_feedback?: string;
 }
 
 interface PublicUser {
@@ -48,6 +50,10 @@ function DashboardContent() {
     const [isDeleting, setIsDeleting] = useState(false);
     // Technician details state
     const [assignedTechnician, setAssignedTechnician] = useState<any>(null);
+    // Citizen review state
+    const [reviewMode, setReviewMode] = useState<'none' | 'accept' | 'reject'>('none');
+    const [citizenFeedback, setCitizenFeedback] = useState('');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     // Language support
     const { language } = useAuthStore();
@@ -173,7 +179,7 @@ function DashboardContent() {
     // Calculate stats from user's reports only
     const stats = {
         total: reports.length,
-        resolved: reports.filter(r => r.status === 'resolved').length,
+        resolved: reports.filter(r => r.status === 'resolved' || r.status === 'closed').length,
         inProgress: reports.filter(r => r.status === 'in_progress').length,
         pending: reports.filter(r => r.status === 'pending').length,
     };
@@ -184,8 +190,42 @@ function DashboardContent() {
             in_progress: { color: 'bg-blue-500', lightBg: 'bg-blue-50', lightText: 'text-blue-700', text: 'In Progress', icon: TrendingUp },
             resolved: { color: 'bg-green-500', lightBg: 'bg-green-50', lightText: 'text-green-700', text: 'Resolved', icon: CheckCircle },
             rejected: { color: 'bg-red-500', lightBg: 'bg-red-50', lightText: 'text-red-700', text: 'Rejected', icon: AlertCircle },
+            closed: { color: 'bg-emerald-600', lightBg: 'bg-emerald-50', lightText: 'text-emerald-700', text: 'Verified & Closed', icon: CheckCircle },
         };
         return badges[status];
+    };
+
+    const handleCitizenReview = async (action: 'accept' | 'reject') => {
+        if (!selectedReport) return;
+        if (action === 'reject' && !citizenFeedback.trim()) {
+            return; // Reject requires feedback
+        }
+        setIsSubmittingReview(true);
+        try {
+            const body: any = {
+                status: action === 'accept' ? 'closed' : 'in_progress',
+            };
+            if (citizenFeedback.trim()) {
+                body.citizen_feedback = citizenFeedback.trim();
+            }
+            const response = await fetch(`/api/reports/${selectedReport.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Update local state
+                setReports(prev => prev.map(r => r.id === selectedReport.id ? { ...r, ...data.report } : r));
+                setSelectedReport({ ...selectedReport, ...data.report });
+                setReviewMode('none');
+                setCitizenFeedback('');
+            }
+        } catch (error) {
+            console.error('Review submission error:', error);
+        } finally {
+            setIsSubmittingReview(false);
+        }
     };
 
     const getPriorityBadge = (priority: Report['priority']) => {
@@ -541,8 +581,128 @@ function DashboardContent() {
                                     );
                                 })()}
 
+                                {/* Citizen Verified Badge (closed reports) */}
+                                {selectedReport.status === 'closed' && (
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                                                <CheckCircle className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-emerald-700">Resolution Verified by Citizen</p>
+                                                <p className="text-xs text-emerald-600">This issue has been confirmed as fixed</p>
+                                            </div>
+                                        </div>
+                                        {selectedReport.citizen_feedback && (
+                                            <p className="text-slate-600 text-sm mt-3 bg-white p-3 rounded-lg border border-emerald-100">
+                                                &ldquo;{selectedReport.citizen_feedback}&rdquo;
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Citizen Accept/Reject Actions for Resolved Reports */}
+                                {selectedReport.status === 'resolved' && !selectedReport.citizen_accepted && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                                <AlertCircle className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-blue-800">Review Resolution</p>
+                                                <p className="text-xs text-blue-600 mt-0.5">The technician has marked this issue as resolved. Please verify if the fix is satisfactory.</p>
+                                            </div>
+                                        </div>
+
+                                        {reviewMode === 'none' && (
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => setReviewMode('reject')}
+                                                    className="flex-1 py-3 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                    Issue Persists
+                                                </button>
+                                                <button
+                                                    onClick={() => setReviewMode('accept')}
+                                                    className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                                                >
+                                                    <CheckCircle className="w-4 h-4" />
+                                                    Accept Fix
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {reviewMode === 'accept' && (
+                                            <div className="space-y-3">
+                                                <textarea
+                                                    value={citizenFeedback}
+                                                    onChange={(e) => setCitizenFeedback(e.target.value)}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none h-20 resize-none placeholder:text-slate-400 text-sm"
+                                                    placeholder="Optional: Share your experience or thanks..."
+                                                />
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={() => { setReviewMode('none'); setCitizenFeedback(''); }}
+                                                        className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all text-sm"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCitizenReview('accept')}
+                                                        disabled={isSubmittingReview}
+                                                        className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                                                    >
+                                                        {isSubmittingReview ? (
+                                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <CheckCircle className="w-4 h-4" />
+                                                                Confirm — Issue Fixed
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {reviewMode === 'reject' && (
+                                            <div className="space-y-3">
+                                                <textarea
+                                                    value={citizenFeedback}
+                                                    onChange={(e) => setCitizenFeedback(e.target.value)}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-700 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none h-24 resize-none placeholder:text-slate-400 text-sm"
+                                                    placeholder="Required: Describe what's still wrong..."
+                                                />
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={() => { setReviewMode('none'); setCitizenFeedback(''); }}
+                                                        className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all text-sm"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCitizenReview('reject')}
+                                                        disabled={isSubmittingReview || !citizenFeedback.trim()}
+                                                        className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isSubmittingReview ? (
+                                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <AlertCircle className="w-4 h-4" />
+                                                                Reopen Issue
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Technician Contact Card */}
-                                {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved') && (
+                                {assignedTechnician && (selectedReport.status === 'in_progress' || selectedReport.status === 'resolved' || selectedReport.status === 'closed') && (
                                     <div className="mt-4 p-1 rounded-2xl bg-gradient-to-r from-blue-100 to-indigo-100">
                                         <div className="bg-white rounded-xl p-5">
                                             <div className="flex items-center gap-2 mb-4">
@@ -577,7 +737,7 @@ function DashboardContent() {
                             {/* Actions Footer */}
                             <div className="mt-8 pt-6 border-t border-slate-100 flex gap-4">
                                 <button
-                                    onClick={() => setSelectedReport(null)}
+                                    onClick={() => { setSelectedReport(null); setReviewMode('none'); setCitizenFeedback(''); }}
                                     className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
                                 >
                                     Close

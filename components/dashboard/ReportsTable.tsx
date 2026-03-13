@@ -24,12 +24,12 @@ export default function ReportsTable({ reports }: ReportsTableProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
 
-    const statuses = ['All', 'pending', 'in_progress', 'resolved', 'rejected'];
+    const statuses = ['All', 'pending', 'in_progress', 'resolved', 'rejected', 'closed'];
 
     const filteredReports = reports.filter(report => {
-        const matchesSearch = report.report_id_display.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              report.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              report.address.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = report.report_id_display.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            report.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            report.address.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -37,19 +37,20 @@ export default function ReportsTable({ reports }: ReportsTableProps) {
     const getPriorityConfig = (priority: string) => {
         const configs: Record<string, { color: string; bg: string; label: string }> = {
             urgent: { color: 'text-red-700', bg: 'bg-red-50', label: 'Urgent' },
-            high:   { color: 'text-orange-700', bg: 'bg-orange-50', label: 'High' },
+            high: { color: 'text-orange-700', bg: 'bg-orange-50', label: 'High' },
             medium: { color: 'text-yellow-700', bg: 'bg-yellow-50', label: 'Medium' },
-            low:    { color: 'text-slate-600', bg: 'bg-slate-100', label: 'Low' },
+            low: { color: 'text-slate-600', bg: 'bg-slate-100', label: 'Low' },
         };
         return configs[priority] || configs.low;
     };
 
     const getStatusConfig = (status: string) => {
         const configs: Record<string, { color: string; bg: string; label: string }> = {
-            pending:     { color: 'text-orange-700', bg: 'bg-orange-50', label: 'Pending' },
+            pending: { color: 'text-orange-700', bg: 'bg-orange-50', label: 'Pending' },
             in_progress: { color: 'text-blue-700', bg: 'bg-blue-50', label: 'In Progress' },
-            resolved:    { color: 'text-emerald-700', bg: 'bg-emerald-50', label: 'Resolved' },
-            rejected:    { color: 'text-red-700', bg: 'bg-red-50', label: 'Rejected' },
+            resolved: { color: 'text-emerald-700', bg: 'bg-emerald-50', label: 'Resolved' },
+            rejected: { color: 'text-red-700', bg: 'bg-red-50', label: 'Rejected' },
+            closed: { color: 'text-emerald-800', bg: 'bg-emerald-100', label: 'Verified & Closed' },
         };
         return configs[status] || configs.pending;
     };
@@ -62,7 +63,7 @@ export default function ReportsTable({ reports }: ReportsTableProps) {
                     <h3 className="text-lg font-bold text-slate-800">Recent Issues</h3>
                     <p className="text-sm text-slate-500 mt-1">Latest reports across jurisdictions</p>
                 </div>
-                
+
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                     <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -74,7 +75,7 @@ export default function ReportsTable({ reports }: ReportsTableProps) {
                             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                         />
                     </div>
-                    
+
                     <div className="relative w-full sm:w-36">
                         <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <select
@@ -116,8 +117,8 @@ export default function ReportsTable({ reports }: ReportsTableProps) {
                                 const status = getStatusConfig(report.status);
 
                                 return (
-                                    <tr 
-                                        key={report.id} 
+                                    <tr
+                                        key={report.id}
                                         onClick={() => router.push(`/officer/reports/${report.id}`)}
                                         className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
                                     >

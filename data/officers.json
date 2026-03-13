@@ -2,7 +2,7 @@
   {
     "id": "OFF001",
     "badge_id": "IPS2024001",
-    "name": "Inspector Rahul",
+    "name": "Rahul",
     "email": "sharma@fixcity.gov.in",
     "password": "officer123",
     "area": "North District",
@@ -28,5 +28,15 @@
     "area": "Headquarters",
     "role": "ward_officer",
     "face_data": "mock_face_chief"
+  },
+  {
+    "id": "SA001",
+    "badge_id": "SUPERADMIN001",
+    "name": "Super Admin",
+    "email": "admin@fixcity.gov.in",
+    "password": "superadmin123",
+    "area": "Headquarters",
+    "role": "super_admin",
+    "face_data": ""
   }
 ]

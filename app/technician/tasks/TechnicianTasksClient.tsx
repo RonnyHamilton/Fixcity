@@ -20,7 +20,7 @@ interface Task {
     address: string;
     latitude: number;
     longitude: number;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id: string;
     created_at: string;

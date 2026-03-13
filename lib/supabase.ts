@@ -53,12 +53,15 @@ export interface Report {
     latitude: number;
     longitude: number;
     address: string;
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'closed';
     priority: 'low' | 'medium' | 'high' | 'urgent';
     assigned_technician_id?: string;
     assigned_officer_id?: string;
     resolution_notes?: string;
     resolution_image_url?: string;
+    citizen_accepted?: boolean;
+    citizen_feedback?: string;
+    citizen_reviewed_at?: string;
     created_at: string;
     updated_at: string;
 }
