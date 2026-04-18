@@ -19,7 +19,7 @@ export const ReportSchema = z.object({
     user_phone: z.string().nullish(),
     category: z.enum([
         'pothole', 'streetlight', 'sanitation',
-        'street_dogs', 'water_pipes', 'other'
+        'water_pipes', 'other'
     ]),
     description: z.string()
         .min(10, "Description must be at least 10 characters")

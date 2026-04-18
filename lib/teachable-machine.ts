@@ -4,25 +4,25 @@
  * Uses Google's Teachable Machine model to auto-detect issue categories
  * from uploaded images.
  * 
- * Model URL: https://teachablemachine.withgoogle.com/models/s6huJIfAP/
+ * Model URL: https://teachablemachine.withgoogle.com/models/6goCUOb7q/
  */
 
 import * as tmImage from '@teachablemachine/image';
 
 // Model URL
-const MODEL_URL = 'https://teachablemachine.withgoogle.com/models/s6huJIfAP/';
+const MODEL_URL = 'https://teachablemachine.withgoogle.com/models/6goCUOb7q/';
 
 // Singleton model instance
 let model: tmImage.CustomMobileNet | null = null;
 let isLoading = false;
 
 // Map Teachable Machine labels to FixCity categories
+// Keys must exactly match the model's label names (case-sensitive)
 const TM_TO_FIXCITY: Record<string, string> = {
     'GARBAGE': 'sanitation',
-    'POTHOLES': 'pothole',
-    'water pipes': 'water_pipes',
-    'street lights': 'streetlight',
-    'dogs': 'street_dogs',
+    'potholes': 'pothole',
+    'broken pipe': 'water_pipes',
+    'street light': 'streetlight',
 };
 
 export interface ClassificationResult {

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Upload, MapPin, Loader2, Camera, X, Check,
-    Trash2, Lightbulb, Car, MoreHorizontal, Dog, ArrowLeft, AlertTriangle, Sparkles, Droplet, ImagePlus
+    Trash2, Lightbulb, Car, MoreHorizontal, ArrowLeft, AlertTriangle, Sparkles, Droplet, ImagePlus
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { classifyFromDataUrl, shouldAutoSelect, getConfidenceColor, ClassificationResult } from '@/lib/teachable-machine';
@@ -17,7 +17,6 @@ const CATEGORIES = [
     { id: 'pothole', label: 'Pothole', icon: Car },
     { id: 'water_pipes', label: 'Water Pipes', icon: Droplet },
     { id: 'streetlight', label: 'Street Light', icon: Lightbulb },
-    { id: 'street_dogs', label: 'Street Dogs', icon: Dog },
     { id: 'other', label: 'Other', icon: MoreHorizontal },
 ];
 
@@ -109,8 +108,8 @@ export default function ReportIssuePage() {
                 const result = await classifyFromDataUrl(imagePreview);
                 setDetectionResult(result);
 
-                // Auto-select if confidence is high enough and no category selected yet
-                if (result && shouldAutoSelect(result.confidence) && !category) {
+                // Auto-select category based on detection result
+                if (result && shouldAutoSelect(result.confidence)) {
                     setCategory(result.category);
                     setWasAutoSelected(true);
                 }

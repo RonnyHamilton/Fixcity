@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // ─── HuggingFace Space: Hamilton21/fixcity-face-api ──────────────────────────
-// Primary: the user's own hosted Space endpoint
-// Fallback: demo mode (badge existence only) when Space is unavailable / cold-starting
-// ─────────────────────────────────────────────────────────────────────────────
-
 const HF_SPACE_URL = 'https://hamilton21-fixcity-face-api.hf.space';
+
+interface Officer {
+    id: string;
+    badge_id: string;
+    name: string;
+    face_data: string;
+    [key: string]: unknown;
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,6 +31,26 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // ── Look up the officer's stored face data ────────────────────────────
+        const dataPath = path.join(process.cwd(), 'data', 'officers.json');
+        const raw = await fs.readFile(dataPath, 'utf-8');
+        const officers: Officer[] = JSON.parse(raw);
+        const officer = officers.find(o => o.badge_id === badgeId);
+
+        if (!officer) {
+            return NextResponse.json(
+                { error: 'Invalid Badge ID. Officer not found.' },
+                { status: 401 }
+            );
+        }
+
+        if (!officer.face_data) {
+            return NextResponse.json(
+                { error: 'No registered face found for this Badge ID. Contact your administrator.' },
+                { status: 403 }
+            );
+        }
+
         console.log(`[FaceVerify] Calling HF Space for ${userType || 'officer'} badge: ${badgeId}`);
 
         try {
@@ -33,10 +59,11 @@ export async function POST(request: NextRequest) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     badge_id: badgeId,
-                    image: image,
+                    image: image,           // live capture from camera
+                    stored_face: officer.face_data, // registered face for comparison
                     user_type: userType || 'officer',
                 }),
-                signal: AbortSignal.timeout(20000), // HF Spaces can be slow on cold start
+                signal: AbortSignal.timeout(20000),
             });
 
             if (!response.ok) {
@@ -56,15 +83,11 @@ export async function POST(request: NextRequest) {
             });
 
         } catch (fetchError: any) {
-            console.warn('[FaceVerify] Space unavailable, using demo fallback:', fetchError.message);
-
-            // Demo fallback — Space may be cold-starting; allow login for demo purposes
-            return NextResponse.json({
-                verified: true,
-                confidence: 85,
-                message: 'Face verification passed (demo mode — Space initialising)',
-                demo: true,
-            });
+            console.error('[FaceVerify] Space unavailable:', fetchError.message);
+            return NextResponse.json(
+                { error: 'Face verification service is unavailable. Please try again shortly.' },
+                { status: 503 }
+            );
         }
 
     } catch (error) {
